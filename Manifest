@@ -1,0 +1,9 @@
+Rakefile
+test/c_extension_test.rb
+test/test_helper.rb
+ext/html_namespacing/extconf.rb
+ext/html_namespacing/html_namespacing.h
+ext/html_namespacing/html_namespacing.c
+ext/html_namespacing/html_namespacing_ext.c
+lib/html_namespacing.rb
+Manifest
