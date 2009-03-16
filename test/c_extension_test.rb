@@ -19,7 +19,10 @@ class CExtensionTest < Test::Unit::TestCase
     end
   end
 
-  self.define_test('no HTML', 'hello', 'X', 'hello')
+  self.define_test('nil HTML', nil, 'X', nil)
+  self.define_test('nil namespace', '<div>hello</div>', nil, '<div>hello</div>')
+  self.define_test('nil everything', nil, nil, nil)
+  self.define_test('plain text', 'hello', 'X', 'hello')
   self.define_test('regular tag', '<div>hello</div>', 'X', '<div class="X">hello</div>')
   self.define_test('empty tag', '<div/>', 'X', '<div class="X" />')
   self.define_test('nested tag', '<div><div>hello</div></div>', 'X', '<div class="X"><div>hello</div></div>')
