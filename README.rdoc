@@ -1,0 +1,255 @@
+= HTML Namespacing
+
+HTML Namespacing automatically adds HTML class attributes to partial HTML
+code.
+
+== Using
+
+HTML Namespacing can be used on its own for a snippet of code:
+
+  require 'rubygems'
+  require 'html_namespacing'
+
+  html = '<p>Here is some <em>HTML</em>!</p>'
+
+  # Returns '<p class="foo">Here is some <em>HTML</em>!</p>'
+  namespaced = HtmlNamespacing::add_namespace_to_html(html, 'foo')
+
+== Details
+
+HTML namespacing expects valid, properly-nested HTML (not XML). It has no
+effect on doctype tags, XML declaration, comments, and the HTML tags which do
+not support the <tt>class</tt> attribute: <tt>html</tt>, <tt>head</tt>,
+<tt>base</tt>, <tt>meta</tt>, <tt>title</tt>, <tt>link</tt>, <tt>script</tt>,
+<tt>noscript</tt>, <tt>style</tt>.
+
+Only the root tags of the partial HTML will be namespaced. For instance, all
+<tt>p</tt> tags in this example will have a class added, but no other tags:
+
+  <p>This is a root tag. <b>This tag is nested.</b></p>
+  <p>This is another root tag.</p>
+
+Remember, <tt>html</tt> (and other HTML tags which do not allow the
+<tt>class</tt> attribute) will be ignored. This HTML will pass through
+unchanged:
+
+  <?xml version="1.0"?>
+  <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+  <!-- Here is a comment -->
+  <html>
+    <head>
+      <title>Hello</title>
+    </head>
+    <body>
+      <p>Blah blah blah</p>
+    </body>
+  </html>
+
+Though the actual namespacing functions are written in pure C with no
+dependencies, only Ruby bindings are available at this time.
+
+== Integrating in your Project
+
+More likely, you want to integrate HTML namespacing into a framework. Here is
+a Rails example:
+
+In <tt>config/environment.rb</tt>:
+
+  config.gem 'html_namespacing'
+
+In <tt>config/initializers/html_namespacing.rb</tt>:
+
+  HtmlNamespacing::Plugin::Rails.install
+
+Now, all templates will have HTML namespacing applied. For instance, with a
+<tt>views/foos/show.html.erb</tt> like this:
+
+  <p>
+    <b>Name:</b>
+    <%=h @foo.name %>
+  </p>
+
+  <%= render(:partial => 'details', :locals => { :foo => @foo }) %>
+
+  <%= link_to 'Edit', foo_edit_path(@foo) %> |
+  <%= link_to 'Back', foos_path %>
+
+The following HTML might be generated (depending on the <tt>_details</tt>
+partial and the data in the actual <tt>Foo</tt> object):
+
+  <p class="foos-show">
+    <b>Name:</b>
+    Foo
+  </p>
+
+  <p class="foos-_details foos-show">
+    <b>Description:</b>
+    Bar
+  </p>
+
+  <a href="/foos/1/edit" class="hellos-show">Edit</a> |
+  <a href="/foos" class="hellos-show">Back</a>
+
+Rails will integrate with all HTML templates, regardless of their
+implementation; feel free to use Haml.
+
+=== Options
+
+Available options to <tt>install</tt> are:
+
+<tt>:template_to_namespace_callback</tt>: Ruby lambda function which accepts an
+<tt>ActionView::Template</tt> and returns an HTML namespacing string. The
+default is:
+
+  lambda { |template| template.path =~ /^([^\.]+)/ && $1.gsub('/', '-') }
+
+If the template returns <tt>nil</tt>, HTML namespacing will not be applied.
+
+== Why?
+
+HTML namespacing gives huge benefits when writing CSS and JavaScript:
+especially if the CSS and JavaScript components are namespaced as well.
+
+Imagine we have the following namespaced HTML:
+
+  <div class="foos-show">
+    <p>In the show partial</p>
+    <div class="foos-_details">
+      <p>In the details partial</p>
+      <div class="foos-_description">
+        <p>In the description</p>
+      </div>
+    </div>
+  </div>
+
+=== CSS Namespacing
+
+We can set three CSS rules:
+
+  .foos-show p { font-size: 1.1em; }
+  .foos-_details p { font-weight: bold; }
+  .foos-_description p { font-style: italic; }
+
+In such an example, the top paragraph would be large, the second would be large
+and bold, and the third would be large, bold, and italic.
+
+The benefit comes when automating these namespaces. For instance, if the CSS
+rules were placed in <tt>stylesheets/views/foos/show.css</tt>,
+<tt>stylesheets/views/foos/_details.css</tt>, and
+<tt>stylesheets/views/foos/_description.css</tt>, respectively, and a
+preprocessor inserted the namespace before (or within) every rule in the file,
+all CSS namespacing would be done for free, so you would be able to write:
+
+<tt>stylesheets/views/foos/show.css</tt>:
+
+  p { font-size: 1.1em; }
+
+<tt>stylesheets/views/foos/_details.css</tt>:
+
+  p { font-weight: bold; }
+
+<tt>stylesheets/views/foos/_description.css</tt>:
+
+  p { font-style: italic; }
+
+Thus, the namespaces would never need to be explicitly mentioned. The
+framework used to generate such CSS is left (for now) as an exercise to the
+reader.
+
+=== jQuery Namespacing
+
+Insert the following before all other JavaScript:
+
+  $(document).ready(function() {
+    $.NS = {};
+  
+    var SPLIT_REGEX = /\s+/;
+  
+    function populate_NS_from_node(node) {
+      var node_stack = [];
+      node_stack.push(node);
+  
+      while (node_stack.length) {
+        var cur_node = node_stack.pop();
+  
+        // Populate entry in $.NS
+        var class_name_list = node.className;
+        var class_names = class_name_list.split(SPLIT_REGEX);
+        for (var i = 0; i < class_names.length; i++) {
+          var class_name = class_names[i];
+          if (!$.NS[class_name]) {
+            $.NS[class_name] = [cur_node];
+          } else {
+            $.NS[class_name].push(cur_node);
+          }
+        }
+  
+        // "recurse" to the children, so they are handled in document order
+        var children = cur_node.childNodes;
+        for (var j = children.length - 1; j >= 0; j--) {
+          var subnode = children[j];
+          node_stack.push(subnode);
+        }
+      }
+    }
+  
+    populate_NS_from_node(document.getElementsByTagName('body')[0]);
+  });
+
+(The CPU cost of this code is small but nonzero, as it precomputes many
+selectors. On a 75kb page with a 2.5Ghz computer, it might take 75ms with
+Firebug profiling turned on. This may or may not be faster than writing each
+selector by hand.)
+
+Afterwards, if you set up a JavaScript framework similar to the CSS framework
+above, you can easily namespace JavaScript behavior:
+
+<tt>javascripts/onload/foos/_description.js</tt>:
+
+  var $NS = $.NS['foos-_description']; // auto-generated line at top of file
+  $NS.find('p').click(function() { alert("Yup, you clicked!"); });
+
+In the above file, if the first line is automatically generated based on the
+file's location (an exercise, for now, left to the reader), the second line can
+be written in full confidence that only paragraphs within the
+<tt>_description</tt> partial will have this jQuery code bound. The end result?
+You can write code specific to one Rails partial without actually writing the
+partial's name anywhere.
+
+== Tips and Tricks
+
+You may find that HTML namespacing works best when each HTML partial is wrapped
+in its own <tt>div</tt> tag. Both CSS's child selectors and jQuery's <tt>find()</tt> function
+will ordinarily ignore the element with the namespace class, only selecting
+sub-elements. For instance, with this HTML:
+
+  <div class="foos-show">
+    <p>Hello</p>
+  </div>
+
+If you wrote the following CSS:
+
+  .foos-show div { font-weight: bold; }
+
+Or the following JavaScript (following the <tt>$NS</tt> example above):
+
+  var $div = $NS.find('div');
+
+Nothing will be selected, because the <tt>div</tt> element is not a child. You would
+need the following CSS:
+
+  div.foos-show { font-weight: bold; }
+
+Or the following JavaScript:
+
+  var $div = $NS.filter('div');
+
+Also, watch for nesting: selectors with the <tt>foos-show</tt> namespace will
+match anything inside any partials rendered by <tt>foos/show.html.erb</tt>.
+As a rule of thumb to circumvent this problem: the wider the namespaces's
+scope, the less CSS and JavaScript you should write which depends on it. (Use
+sub-partials very liberally.)
+
+These and similar strategies should be considered when building your automated
+HTML namespacing framework.

@@ -8,7 +8,7 @@ module HtmlNamespacing
 
       # Called by ActionView
       def self.path_to_namespace(template)
-        if func = @options[:path_to_namespace_callback]
+        if func = @options[:template_to_namespace_callback]
           func.call(template)
         elsif template.path =~ /^([^\.]+)/
           $1.gsub('/', '-')
@@ -22,7 +22,11 @@ module HtmlNamespacing
           def render_template_with_html_namespacing(*args)
             s = render_template_without_html_namespacing(*args)
 
-            HtmlNamespacing::add_namespace_to_html(s, html_namespace)
+            if format == 'html'
+              HtmlNamespacing::add_namespace_to_html(s, html_namespace)
+            else
+              s
+            end
           end
 
           alias_method_chain :render_template, :html_namespacing
