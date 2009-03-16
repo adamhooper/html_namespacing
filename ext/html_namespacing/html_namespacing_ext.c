@@ -37,7 +37,15 @@ html_namespacing_add_namespace_to_html(
     int rv;
     VALUE ret_value;
 
+    if (TYPE(html_value) == T_NIL) {
+      return Qnil;
+    }
     Check_Type(html_value, T_STRING);
+
+    if (TYPE(ns_value) == T_NIL) {
+      return html_value;
+    }
+
     Check_Type(ns_value, T_STRING);
 
     html = RSTRING(html_value)->ptr;
