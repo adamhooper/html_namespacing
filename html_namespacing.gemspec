@@ -10,8 +10,8 @@ Gem::Specification.new do |s|
   s.description = %q{Inserts "class=" attributes within snippets of HTML so CSS and JavaScript can use automatic scopes}
   s.email = %q{adam@adamhooper.com}
   s.extensions = ["ext/html_namespacing/extconf.rb"]
-  s.extra_rdoc_files = ["ext/html_namespacing/extconf.rb", "ext/html_namespacing/html_namespacing.h", "ext/html_namespacing/html_namespacing.c", "ext/html_namespacing/html_namespacing_ext.c", "lib/html_namespacing.rb", "lib/html_namespacing/plugin/rails.rb"]
-  s.files = ["Rakefile", "test/c_extension_test.rb", "test/test_helper.rb", "ext/html_namespacing/extconf.rb", "ext/html_namespacing/html_namespacing.h", "ext/html_namespacing/html_namespacing.c", "ext/html_namespacing/html_namespacing_ext.c", "lib/html_namespacing.rb", "lib/html_namespacing/plugin/rails.rb", "Manifest", "html_namespacing.gemspec"]
+  s.extra_rdoc_files = ["README.rdoc", "ext/html_namespacing/extconf.rb", "ext/html_namespacing/html_namespacing.h", "ext/html_namespacing/html_namespacing.c", "ext/html_namespacing/html_namespacing_ext.c", "lib/html_namespacing.rb", "lib/html_namespacing/plugin/rails.rb"]
+  s.files = ["README.rdoc", "Rakefile", "test/c_extension_test.rb", "test/test_helper.rb", "ext/html_namespacing/extconf.rb", "ext/html_namespacing/html_namespacing.h", "ext/html_namespacing/html_namespacing.c", "ext/html_namespacing/html_namespacing_ext.c", "lib/html_namespacing.rb", "lib/html_namespacing/plugin/rails.rb", "Manifest", "html_namespacing.gemspec"]
   s.has_rdoc = true
   s.homepage = %q{http://github.com/adamh/html_namespacing}
   s.rdoc_options = ["--line-numbers", "--inline-source", "--title", "Html_namespacing", "--main", "README.rdoc"]
