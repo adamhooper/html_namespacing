@@ -3,6 +3,10 @@
 HTML Namespacing automatically adds HTML class attributes to partial HTML
 code.
 
+== Installing
+
+  gem install adamh-html_namespacing --source http://gems.github.com
+
 == Using
 
 HTML Namespacing can be used on its own for a snippet of code:
@@ -253,3 +257,14 @@ sub-partials very liberally.)
 
 These and similar strategies should be considered when building your automated
 HTML namespacing framework.
+
+== License
+
+I believe in software freedom, not any abomination thereof. This project is
+released under the Public Domain, meaning I relinquish my copyright (to any
+extend the law allows) and grant you all rights to use, modify, sell, or
+otherwise take advantage of my software.
+
+However, I do kindly request that, as a favor, you refrain from using my
+software as part of an evil plan involving velociraptors and mind-controlling
+robots.
