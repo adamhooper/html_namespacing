@@ -106,9 +106,9 @@ Available options to <tt>install</tt> are:
 <tt>ActionView::Template</tt> and returns an HTML namespacing string. The
 default is:
 
-  lambda { |template| template.path =~ /^([^\.]+)/ && $1.gsub('/', '-') }
+  lambda { |template| template.path =~ /^([^\.]+)/ && $1.gsub('/', '-') || nil }
 
-If the template returns <tt>nil</tt>, HTML namespacing will not be applied.
+If the callback returns <tt>nil</tt>, HTML namespacing will not be applied.
 
 == Why?
 
