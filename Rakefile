@@ -2,7 +2,7 @@ require 'rubygems'
 require 'rake'
 require 'echoe'
 
-Echoe.new('html_namespacing', '0.0.2') do |p|
+Echoe.new('html_namespacing', '0.0.3') do |p|
   p.author = 'Adam Hooper'
   p.email = 'adam@adamhooper.com'
   p.summary = 'Automatic HTML namespacing'

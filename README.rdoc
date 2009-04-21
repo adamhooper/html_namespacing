@@ -110,6 +110,15 @@ default is:
 
 If the callback returns <tt>nil</tt>, HTML namespacing will not be applied.
 
+<tt>:handle_exception_callback</tt>: Ruby lambda function which accepts
+an <tt>Exception</tt>, an <tt>ActionView::Template</tt>, and an
+<tt>ActionView::Base</tt>. The default behavior is:
+
+  lambda { |exception, template, view| raise(exception) }
+
+If your <tt>:handle_exception_callback</tt> does not raise an exception,
+the template will be rendered as if HtmlNamespacing were not installed.
+
 == Why?
 
 HTML namespacing gives huge benefits when writing CSS and JavaScript:

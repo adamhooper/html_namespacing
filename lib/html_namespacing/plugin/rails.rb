@@ -15,6 +15,14 @@ module HtmlNamespacing
         end
       end
 
+      def self.handle_exception(e, template, view)
+        if func = @options[:handle_exception_callback]
+          func.call(e, template, view)
+        else
+          raise(e)
+        end
+      end
+
       private
 
       def self.install_rails_2_3(options = {})
@@ -23,12 +31,17 @@ module HtmlNamespacing
             s = render_template_without_html_namespacing(*args)
 
             if format == 'html'
-              HtmlNamespacing::add_namespace_to_html(s, html_namespace)
+              begin
+                HtmlNamespacing::add_namespace_to_html(s, html_namespace)
+              rescue ArgumentError => e
+                view = args.first
+                HtmlNamespacing::Plugin::Rails.handle_exception(e, self, view)
+                s # unless handle_exception() raised something
+              end
             else
               s
             end
           end
-
           alias_method_chain :render_template, :html_namespacing
 
           def html_namespace
