@@ -74,7 +74,7 @@ html_namespacing_add_namespace_to_html(
             &ret_len,
             ALLOCATION_STRATEGY);
     if (rv == EINVAL) {
-        rb_raise(rb_eArgError, "Badly-formed HTML");
+        rb_raise(rb_eArgError, "Badly-formed HTML: %s", html_ptr);
     }
     if (rv != 0) {
         rb_raise(rb_eRuntimeError, "Unknown error in add_namespace_to_html");
