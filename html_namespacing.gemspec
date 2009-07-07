@@ -2,11 +2,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{html_namespacing}
-  s.version = "0.0.3"
+  s.version = "0.0.4"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 1.2") if s.respond_to? :required_rubygems_version=
   s.authors = ["Adam Hooper"]
-  s.date = %q{2009-04-21}
+  s.date = %q{2009-07-07}
   s.description = %q{Inserts "class=" attributes within snippets of HTML so CSS and JavaScript can use automatic scopes}
   s.email = %q{adam@adamhooper.com}
   s.extensions = ["ext/html_namespacing/extconf.rb"]
