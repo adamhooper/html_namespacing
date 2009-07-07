@@ -7,6 +7,8 @@
 
 #include "html_namespacing.h"
 
+#define WHITE_SPACE " \t\r\n"
+
 static const char* const IGNORE_TAGS[] = {
     "html",
     "head",
@@ -57,6 +59,19 @@ utf8_char_bytes(const char *utf8)
     }
 
     return -1;
+}
+
+/*
+ * Copies num_bytes bytes from *src_p to *dest_p, doing no bounds checking.
+ *
+ * Advances *dest_p and *src_p by num_bytes.
+ */
+static void
+copy_n_bytes_and_advance(char **dest_p, const char **src_p, size_t num_bytes)
+{
+    memcpy(*dest_p, *src_p, num_bytes);
+    *dest_p += num_bytes;
+    *src_p += num_bytes;
 }
 
 /*
@@ -136,8 +151,8 @@ append_next_utf8_char(
     int rv;
 
     c_num_utf8_bytes = utf8_char_bytes(*src_p);
-    dest_p_offset = *dest_p - *dest;
     new_dest = *dest;
+    dest_p_offset = *dest_p - *dest;
     new_dest_len = dest_p_offset + c_num_utf8_bytes;
 
     rv = ensure_string_length(
@@ -150,13 +165,26 @@ append_next_utf8_char(
         *dest_p = new_dest + dest_p_offset;
     }
 
-    strncpy(*dest_p, *src_p, c_num_utf8_bytes);
-    *dest_p += c_num_utf8_bytes;
-    *src_p += c_num_utf8_bytes;
+    copy_n_bytes_and_advance(dest_p, src_p, c_num_utf8_bytes);
 
     return 0;
 }
 
+/*
+ * Tries to copy s into dest, possibly reallocating.
+ *
+ * Arguments:
+ *   - dest: Beginning of destination string. May be reallocated during copy.
+ *   - dest_len: Amount of memory allocated to dest. May be increased during
+ *     copy.
+ *   - dest_p: Pointer to end of destination string (potentially 1 past the
+ *     allocated length of dest).
+ *   - s: Source string.
+ *
+ * Returns:
+ *   - 0 on success. dest may be changed; dest_p will be incremented.
+ *   - ENOMEM if reallocation failed. dest and dest_p will remain unchanged.
+ */
 static int
 append_string(
         char **dest,
@@ -165,15 +193,67 @@ append_string(
         const char *s,
         HtmlNamespacingAllocationStrategy allocation_strategy)
 {
-    int rv = 0;
+    int len;
+    int rv;
+    size_t dest_p_offset;
+    size_t new_dest_len;
+    char *new_dest;
 
-    while (*s && rv == 0) {
-        rv = append_next_utf8_char(
-                dest, dest_len, dest_p, &s, allocation_strategy);
+    len = strlen(s);
+    new_dest = *dest;
+    dest_p_offset = *dest_p - *dest;
+    new_dest_len = dest_p_offset + len;
+
+    rv = ensure_string_length(
+            &new_dest, dest_len, new_dest_len, allocation_strategy);
+    if (rv == ENOMEM) {
+        return ENOMEM;
+    }
+    if (new_dest != *dest) {
+        *dest = new_dest;
+        *dest_p = new_dest + dest_p_offset;
     }
 
-    return rv;
+    strncpy(*dest_p, s, len);
+    *dest_p += len;
+
+    return 0;
 };
+
+static int
+append_next_chars_until(
+        char **dest,
+        size_t *dest_len,
+        char **dest_p,
+        const char **src_p,
+        const char *until_chars,
+        HtmlNamespacingAllocationStrategy allocation_strategy)
+{
+    size_t num_bytes;
+    size_t dest_p_offset;
+    size_t new_dest_len;
+    char *new_dest;
+    int rv;
+
+    num_bytes = strcspn(*src_p, until_chars);
+    new_dest = *dest;
+    dest_p_offset = *dest_p - *dest;
+    new_dest_len = dest_p_offset + num_bytes;
+
+    rv = ensure_string_length(
+            &new_dest, dest_len, new_dest_len, allocation_strategy);
+    if (rv == ENOMEM) {
+        return ENOMEM;
+    }
+    if (new_dest != *dest) {
+        *dest = new_dest;
+        *dest_p = new_dest + dest_p_offset;
+    }
+
+    copy_n_bytes_and_advance(dest_p, src_p, num_bytes);
+
+    return 0;
+}
 
 static int
 append_end_of_string(
@@ -224,7 +304,7 @@ should_ignore_tag(const char *tag_name, size_t tag_len)
     int i = 0;
     const char *test_ignore;
 
-    for (i = 0; test_ignore = IGNORE_TAGS[i]; i++) {
+    for (i = 0; (test_ignore = IGNORE_TAGS[i]); i++) {
         if (0 == strncmp(test_ignore, tag_name, tag_len)
                 && strlen(test_ignore) == tag_len)
         {
@@ -272,20 +352,21 @@ add_namespace_to_html_with_length_and_allocation_strategy(
 {
 
 #define APPEND_NEXT_CHAR() \
-        if (append_next_utf8_char(&r, &r_len, &r_p, &html, allocation_strategy) != 0) goto error/*;*/
+        if (*html && append_next_utf8_char(&r, &r_len, &r_p, &html, allocation_strategy) != 0) goto error/*;*/
 #define APPEND_STRING(s) \
         if (append_string(&r, &r_len, &r_p, s, allocation_strategy) != 0) goto error/*;*/
 #define APPEND_END_OF_STRING() \
         if (append_end_of_string(&r, &r_len, &r_p, allocation_strategy) != 0) goto error/*;*/
+#define APPEND_NEXT_CHARS_UNTIL(chars) \
+        if (append_next_chars_until(&r, &r_len, &r_p, &html, chars, allocation_strategy) != 0) goto error/*;*/
 
     unsigned int state;
     char *r; /* Start of retval */
     char *r_p; /* Pointer in retval */
     size_t r_len; /* Length of retval */
     const char *html_start;
-    const char *open_tag_name;
-    size_t open_tag_name_len;
-    char c;
+    const char *open_tag_name = NULL;
+    size_t open_tag_name_len = 0;
     size_t num_chars_remaining;
     int num_tags_open;
     int open_tag_attribute_is_class_attribute;
@@ -310,10 +391,9 @@ add_namespace_to_html_with_length_and_allocation_strategy(
         num_chars_remaining = html_len - (html - html_start);
         if (num_chars_remaining <= 0) break;
 
-        c = *html;
         switch (state) {
             case PARSE_NORMAL:
-                if (c == '<') {
+                if (*html == '<') {
                     APPEND_NEXT_CHAR();
                     if (num_chars_remaining >= 9
                             && 0 == strncmp("![CDATA[", html, 8)) {
@@ -334,20 +414,16 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                         state = PARSE_OPEN_TAG_NAME;
                     }
                 } else {
-                    APPEND_NEXT_CHAR();
+                    APPEND_NEXT_CHARS_UNTIL("<");
                 }
                 break;
             case PARSE_OPEN_TAG_NAME:
-                if (char_is_whitespace(c) || c == '>' || c == '/') {
-                    open_tag_name_len = html - open_tag_name;
-                    state = PARSE_OPEN_TAG;
-                }
-                if (c != '>' && c != '/') {
-                    APPEND_NEXT_CHAR();
-                }
+                APPEND_NEXT_CHARS_UNTIL(WHITE_SPACE ">/");
+                open_tag_name_len = html - open_tag_name;
+                state = PARSE_OPEN_TAG;
                 break;
             case PARSE_OPEN_TAG:
-                if (c == '/' || c == '>') {
+                if (*html == '/' || *html == '>') {
                     if (num_tags_open == 0 && !open_tag_had_class_attribute
                             && !should_ignore_tag(open_tag_name, open_tag_name_len)) {
                         APPEND_STRING(" class=\"");
@@ -358,14 +434,15 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                     open_tag_had_class_attribute = 0;
                     open_tag_attribute_value = NULL;
 
-                    if (c == '/') {
+                    if (*html == '/') {
                         APPEND_STRING(" ");
                         state = PARSE_EMPTY_TAG;
                     } else {
                         num_tags_open++;
                         state = PARSE_NORMAL;
                     }
-                } else if (!char_is_whitespace(c)) {
+                    APPEND_NEXT_CHAR();
+                } else if (!char_is_whitespace(*html)) {
                     if (num_chars_remaining >= 5
                             && 0 == strncmp(html, "class", 5)) {
                         open_tag_attribute_is_class_attribute = 1;
@@ -374,68 +451,72 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                         open_tag_attribute_is_class_attribute = 0;
                     }
                     state = PARSE_OPEN_TAG_ATTRIBUTE_NAME;
+                } else {
+                    APPEND_NEXT_CHAR();
                 }
-                APPEND_NEXT_CHAR();
                 break;
             case PARSE_OPEN_TAG_ATTRIBUTE_NAME:
-                if (char_is_whitespace(c) || c == '=') {
-                    state = PARSE_OPEN_TAG_ATTRIBUTE_EQUALS;
-                }
+                APPEND_NEXT_CHARS_UNTIL("=");
+                state = PARSE_OPEN_TAG_ATTRIBUTE_EQUALS;
                 APPEND_NEXT_CHAR();
                 break;
             case PARSE_OPEN_TAG_ATTRIBUTE_EQUALS:
-                if (c == '\'' || c == '"') {
-                    open_tag_attribute_value = html;
-                    state = PARSE_OPEN_TAG_ATTRIBUTE_VALUE;
-                }
+                APPEND_NEXT_CHARS_UNTIL("'\"");
+                open_tag_attribute_value = html;
+                state = PARSE_OPEN_TAG_ATTRIBUTE_VALUE;
                 APPEND_NEXT_CHAR();
                 break;
             case PARSE_OPEN_TAG_ATTRIBUTE_VALUE:
+                APPEND_NEXT_CHARS_UNTIL("'\"");
                 /* open_tag_attribute_value is either ' or " */
-                if (c == *open_tag_attribute_value) {
-                    if (open_tag_attribute_is_class_attribute
-                            && num_tags_open == 0) {
-                        APPEND_STRING(" ");
-                        APPEND_STRING(ns);
-                    }
-                    open_tag_attribute_is_class_attribute = 0;
-                    state = PARSE_OPEN_TAG;
+                while (*html != *open_tag_attribute_value) {
+                    APPEND_NEXT_CHAR();
+                    APPEND_NEXT_CHARS_UNTIL("'\"");
                 }
+                if (open_tag_attribute_is_class_attribute
+                        && num_tags_open == 0) {
+                    APPEND_STRING(" ");
+                    APPEND_STRING(ns);
+                }
+                open_tag_attribute_is_class_attribute = 0;
+                state = PARSE_OPEN_TAG;
                 APPEND_NEXT_CHAR();
                 break;
             case PARSE_CLOSE_TAG:
-                if (c == '>') {
-                    num_tags_open--;
-                    open_tag_attribute_value = NULL;
-                    state = PARSE_NORMAL;
-                }
+                APPEND_NEXT_CHARS_UNTIL(">");
+                num_tags_open--;
+                open_tag_attribute_value = NULL;
+                state = PARSE_NORMAL;
                 APPEND_NEXT_CHAR();
                 break;
             case PARSE_EMPTY_TAG:
             case PARSE_XML_DECL:
             case PARSE_DOCTYPE:
-                if (c == '>') {
-                    state = PARSE_NORMAL;
-                }
+                APPEND_NEXT_CHARS_UNTIL(">");
+                state = PARSE_NORMAL;
                 APPEND_NEXT_CHAR();
                 break;
             case PARSE_COMMENT:
-                APPEND_NEXT_CHAR();
-                if (c == '-' && num_chars_remaining >= 3
+                APPEND_NEXT_CHAR(); /* at least one */
+                APPEND_NEXT_CHARS_UNTIL("-");
+                if (*html == '-' && num_chars_remaining >= 3
                         && 0 == strncmp("->", html, 2)) {
                     APPEND_NEXT_CHAR();
                     APPEND_NEXT_CHAR();
                     state = PARSE_NORMAL;
                 }
+                /* else loop... */
                 break;
             case PARSE_CDATA:
-                APPEND_NEXT_CHAR();
-                if (c == ']' && num_chars_remaining >= 3
+                APPEND_NEXT_CHAR(); /* at least one */
+                APPEND_NEXT_CHARS_UNTIL("]");
+                if (*html == ']' && num_chars_remaining >= 3
                         && 0 == strncmp("]>", html, 2)) {
                     APPEND_NEXT_CHAR();
                     APPEND_NEXT_CHAR();
                     state = PARSE_NORMAL;
                 }
+                /* else loop... */
                 break;
             default:
                 assert(0);

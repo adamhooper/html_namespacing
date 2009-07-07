@@ -33,6 +33,7 @@ class CExtensionTest < Test::Unit::TestCase
   self.define_test('works with utf-8', '<div class="𝞪">𝟂</div>', '𝞺', '<div class="𝞪 𝞺">𝟂</div>')
   self.define_test('empty tag with existing class=', '<span class="foo"/>', 'bar', '<span class="foo bar" />')
   self.define_test('works with newlines in tag', "<div\n\nclass\n\n=\n\n'foo'\n\n>bar</div>", 'baz', "<div\n\nclass\n\n=\n\n'foo baz'\n\n>bar</div>")
+  self.define_test('works with "\'" within \'"\' attributes', '<div title="Adam\'s House" class="foo">bar</div>', 'baz', '<div title="Adam\'s House" class="foo baz">bar</div>')
   self.define_test('ignores XML prolog', '<?xml version="1.0"?><div>foo</div>', 'X', '<?xml version="1.0"?><div class="X">foo</div>')
   self.define_test('ignores DOCTYPE', '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><div>foo</div>', 'X', '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><div class="X">foo</div>')
   self.define_test('ignores CDATA', '<![CDATA[ignore <div class="foo">]] </div>]]><div>foo</div>', 'X', '<![CDATA[ignore <div class="foo">]] </div>]]><div class="X">foo</div>')
