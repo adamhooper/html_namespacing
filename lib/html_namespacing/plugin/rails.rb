@@ -10,8 +10,8 @@ module HtmlNamespacing
       def self.path_to_namespace(template)
         if func = @options[:template_to_namespace_callback]
           func.call(template)
-        elsif template.path =~ /^([^\.]+)/
-          $1.gsub('/', '-')
+        else
+          HtmlNamespacing::Plugin.default_relative_path_to_namespace(template.path)
         end
       end
 

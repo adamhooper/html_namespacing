@@ -3,6 +3,10 @@
 HTML Namespacing automatically adds HTML class attributes to partial HTML
 code.
 
+The intent is for HTML, CSS, and JavaScript files to be "namespaced" according
+to their location in the filesystem. That way, CSS and JavaScript can be scoped
+to individual HTML files--even automatically.
+
 == Installing
 
   gem install adamh-html_namespacing --source http://gems.github.com
@@ -21,21 +25,14 @@ HTML Namespacing can be used on its own for a snippet of code:
 
 == Details
 
-HTML namespacing expects valid, properly-nested HTML (not XML). It has no
-effect on doctype tags, XML declaration, comments, and the HTML tags which do
-not support the <tt>class</tt> attribute: <tt>html</tt>, <tt>head</tt>,
-<tt>base</tt>, <tt>meta</tt>, <tt>title</tt>, <tt>link</tt>, <tt>script</tt>,
-<tt>noscript</tt>, <tt>style</tt>.
-
-Only the root tags of the partial HTML will be namespaced. For instance, all
-<tt>p</tt> tags in this example will have a class added, but no other tags:
+Only root tags will be namespaced. For instance, all <tt>p</tt> tags in this
+example will have a class added, but no other tags:
 
   <p>This is a root tag. <b>This tag is nested.</b></p>
   <p>This is another root tag.</p>
 
-Remember, <tt>html</tt> (and other HTML tags which do not allow the
-<tt>class</tt> attribute) will be ignored. This HTML will pass through
-unchanged:
+Because XML, DOCTYPE, comments, and <tt>html</tt> tags do not allow the
+<tt>class</tt> attribute, the following HTML will pass through unchanged:
 
   <?xml version="1.0"?>
   <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
@@ -50,13 +47,17 @@ unchanged:
     </body>
   </html>
 
+(The following elements do not support the <tt>class</tt> attribute:
+<tt>html</tt>, <tt>head</tt>, <tt>base</tt>, <tt>meta</tt>, <tt>title</tt>,
+<tt>link</tt>, <tt>script</tt>, <tt>noscript</tt>, <tt>style</tt>.)
+
 Though the actual namespacing functions are written in pure C with no
 dependencies, only Ruby bindings are available at this time.
 
-== Integrating in your Project
+== Integrating in a Rails project
 
-More likely, you want to integrate HTML namespacing into a framework. Here is
-a Rails example:
+HTML namespacing is meant to integrate into a framework. Here is a Rails
+example:
 
 In <tt>config/environment.rb</tt>:
 
@@ -74,9 +75,9 @@ Now, all templates will have HTML namespacing applied. For instance, with a
     <%=h @foo.name %>
   </p>
 
-  <%= render(:partial => 'details', :locals => { :foo => @foo }) %>
+  <%= render(:partial => @foo) %>
 
-  <%= link_to 'Edit', foo_edit_path(@foo) %> |
+  <%= link_to 'Edit', edit_foo_path(@foo) %> |
   <%= link_to 'Back', foos_path %>
 
 The following HTML might be generated (depending on the <tt>_details</tt>
@@ -87,7 +88,7 @@ partial and the data in the actual <tt>Foo</tt> object):
     Foo
   </p>
 
-  <p class="foos-_details foos-show">
+  <p class="foos-_foo foos-show">
     <b>Description:</b>
     Bar
   </p>
@@ -95,12 +96,59 @@ partial and the data in the actual <tt>Foo</tt> object):
   <a href="/foos/1/edit" class="hellos-show">Edit</a> |
   <a href="/foos" class="hellos-show">Back</a>
 
-Rails will integrate with all HTML templates, regardless of their
-implementation; feel free to use Haml.
+== Integrating with Haml and Sass in Rails
+
+With Haml:http://haml-lang.com/ and Sass:http://sass-lang.com/ namespacing can
+be automated even further.
+
+In your Rails project, implement the following:
+
+In <tt>config/environment.rb</tt>:
+
+  config.gem 'haml', :version => '2.2.0'
+  config.gem 'adamh-html_namespacing', :library => 'html_namespacing'
+
+In <tt>config/initializers/html_namespacing.rb</tt>:
+
+  HtmlNamespacing::Plugin::Rails.install
+  HtmlNamespacing::Plugin::Sass.install
+
+Then add <tt>stylesheet_link_tag(:all, :recursive => true)</tt> to your layout.
+
+Now, all templates will have HTML namespacing applied, and Sass files in
+<tt>SASS_DIR/views</tt> (where <tt>SASS_DIR</tt> is Sass's
+<tt>:template_location</tt>, default <tt>public/stylesheets/sass</tt>) will
+also be HTML-namespaced. For example:
+
+With a partial, <tt>app/views/foos/show.html.haml</tt> like this:
+
+  %p
+    %strong Name:
+    %span.name&= @foo.name
+
+  = render(:partial => @foo)
+
+  = link_to('Edit', edit_foo_path(@foo)
+  |
+  = link_to('Back', foos_path
+
+And a Sass file in <tt>public/stylesheets/sass/views/foos/show.sass</tt>:
+
+  strong
+    :font-size 1.3em
+  span.name
+    :font-style italic
+  a&
+    :font-weight bold
+
+The Sass rules will only apply to their corresponding partial.
+
+(Note: to target root-level elements in a Sass partial, use the "&" rule,
+which is standard Sass and will equate to ".NAMESPACE" in this context.)
 
 === Options
 
-Available options to <tt>install</tt> are:
+Available options to <tt>HtmlNamespacing::Plugin::Rails.install</tt> are:
 
 <tt>:template_to_namespace_callback</tt>: Ruby lambda function which accepts an
 <tt>ActionView::Template</tt> and returns an HTML namespacing string. The
@@ -118,6 +166,14 @@ an <tt>Exception</tt>, an <tt>ActionView::Template</tt>, and an
 
 If your <tt>:handle_exception_callback</tt> does not raise an exception,
 the template will be rendered as if HtmlNamespacing were not installed.
+
+Available options to <tt>HtmlNamespacing::Plugin::Sass.install</tt> are:
+
+<tt>:prefix</tt> (default <tt>views</tt>): subdirectory of Sass directory for
+which we want to namespace our Sass.
+<tt>:callback</tt>: See <tt>:template_to_namespace_callback</tt> above; this
+callback is similar, though it accepts a string path rather than an
+<tt>ActionView::Template</tt>.
 
 == Why?
 
@@ -237,9 +293,9 @@ rename or move the partial.
 == Tips and Tricks
 
 You may find that HTML namespacing works best when each HTML partial is wrapped
-in its own <tt>div</tt> tag. Both CSS's child selectors and jQuery's <tt>find()</tt> function
-will ordinarily ignore the element with the namespace class, only selecting
-sub-elements. For instance, with this HTML:
+in its own <tt>div</tt> tag. Both CSS's child selectors and jQuery's
+<tt>find()</tt> function will ordinarily ignore the element with the namespace
+class, only selecting sub-elements. For instance, with this HTML:
 
   <div class="foos-show">
     <p>Hello</p>
@@ -248,6 +304,11 @@ sub-elements. For instance, with this HTML:
 If you wrote the following CSS:
 
   .foos-show div { font-weight: bold; }
+
+Or this Sass:
+
+  div
+    :font-weight bold
 
 Or the following JavaScript (following the <tt>$NS</tt> example above):
 
@@ -258,6 +319,11 @@ would need the following CSS:
 
   div.foos-show { font-weight: bold; }
 
+Or this sass:
+
+  div&
+    :font-weight bold
+
 Or the following JavaScript:
 
   var $div = $NS.filter('div');
@@ -266,10 +332,18 @@ Also, watch out for nesting: selectors with the <tt>foos-show</tt> namespace
 will match anything inside any partials rendered by
 <tt>foos/show.html.erb</tt>. As a rule of thumb to circumvent this problem: the
 wider the namespaces's scope, the less CSS and JavaScript you should write
-which depends on it. (Rule of thumb: use sub-partials very liberally.)
+which depends on it. (Use sub-partials very liberally.)
 
-These and similar strategies should be considered when building your automated
-HTML namespacing framework.
+HTML namespacing produces plenty of tiny CSS and/or JavaScript files. Best
+practice is to bundle all namespaced files together: by virtue of being
+namespaced, it is safe to concatenate them. (Advanced CSS users should
+be thoughtful about
+"cascading order and specificity":http://www.w3.org/TR/CSS2/cascade.html#cascading-order;
+and anybody bundling JavaScript files together should wrap each with
+<tt>(function() { ... })();</tt> to prevent variable leakage.)
+
+These and similar strategies should be considered when building an HTML
+namespacing framework.
 
 == License
 
