@@ -29,20 +29,29 @@ module HtmlNamespacing
         ::ActionView::Template.class_eval do
           def render_template_with_html_namespacing(*args)
             s = render_template_without_html_namespacing(*args)
+            namespace_rendered_content(s)
+          end
+          alias_method_chain :render_template, :html_namespacing
 
+          def render_with_html_namespacing(view, local_assigns={})
+            s = render_without_html_namespacing(view, local_assigns)
+            namespace_rendered_content(s)
+          end
+          alias_method_chain :render, :html_namespacing
+
+          def namespace_rendered_content(content)
             if format == 'html'
               begin
-                HtmlNamespacing::add_namespace_to_html(s, html_namespace)
+                HtmlNamespacing::add_namespace_to_html(content, html_namespace)
               rescue ArgumentError => e
                 view = args.first
                 HtmlNamespacing::Plugin::Rails.handle_exception(e, self, view)
-                s # unless handle_exception() raised something
+                content # unless handle_exception() raised something
               end
             else
-              s
+              content
             end
           end
-          alias_method_chain :render_template, :html_namespacing
 
           def html_namespace
             HtmlNamespacing::Plugin::Rails.path_to_namespace(self)
