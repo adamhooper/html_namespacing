@@ -61,10 +61,10 @@ html_namespacing_add_namespace_to_html(
 
     Check_Type(ns, T_STRING);
 
-    html_ptr = RSTRING(html)->ptr;
-    html_len = RSTRING(html)->len;
+    html_ptr = RSTRING_PTR(html);
+    html_len = RSTRING_LEN(html);
 
-    ns_ptr = RSTRING(ns)->ptr;
+    ns_ptr = RSTRING_PTR(ns);
 
     rv = add_namespace_to_html_with_length_and_allocation_strategy(
             html_ptr,
