@@ -8,7 +8,9 @@ ext/html_namespacing/html_namespacing.c
 ext/html_namespacing/html_namespacing_ext.c
 lib/html_namespacing.rb
 lib/html_namespacing/plugin.rb
+lib/html_namespacing/plugin/dom_scan_jquery.compressed.js
 lib/html_namespacing/plugin/rails.rb
+lib/html_namespacing/plugin/dom_scan_jquery.js
 lib/html_namespacing/plugin/sass.rb
 Manifest
 html_namespacing.gemspec

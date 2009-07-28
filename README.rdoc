@@ -150,11 +150,11 @@ which is standard Sass and will equate to ".NAMESPACE" in this context.)
 
 Available options to <tt>HtmlNamespacing::Plugin::Rails.install</tt> are:
 
-<tt>:template_to_namespace_callback</tt>: Ruby lambda function which accepts an
-<tt>ActionView::Template</tt> and returns an HTML namespacing string. The
-default is:
+<tt>:path_to_namespace_callback</tt>: Ruby lambda function which accepts a
+relative path (e.g., "foo/bar") and returns an HTML namespacing string
+(e.g., "foo-bar"). The default is:
 
-  lambda { |template| template.path =~ /^([^\.]+)/ && $1.gsub('/', '-') || nil }
+  lambda { |path| path.gsub('/', '-') }
 
 If the callback returns <tt>nil</tt>, HTML namespacing will not be applied.
 
@@ -166,6 +166,23 @@ an <tt>Exception</tt>, an <tt>ActionView::Template</tt>, and an
 
 If your <tt>:handle_exception_callback</tt> does not raise an exception,
 the template will be rendered as if HtmlNamespacing were not installed.
+
+<tt>:javascript</tt>: If set, enable
+<tt>html_namespacing_javascript_tag()</tt> (see below). You will need to
+<tt>include HtmlNamespacing::Plugin::Rails::Helpers</tt> in your helpers to
+gain access to this method.
+
+<tt>:javascript_root</tt>: Root of namespaced JavaScript files, if you are
+using <tt>html_namespacing_javascript_tag()</tt> (see below).
+
+<tt>:javascript_optional_suffix</tt>: optional suffix for your JavaScript
+files, if you are using <tt>html_namespacing_javascript_tag()</tt>. For
+instance, if <tt>:javascript_optional_suffix</tt> is <tt>'compressed'</tt> and
+you rendered the partial <tt>app/views/foos/_foo.html.haml</tt>, then the
+(presumably minified) file
+<tt>app/javascripts/views/foos/_foo.compressed.js</tt> will be included if it
+exists (otherwise the standard <tt>app/javascripts/views/foos/_foo.js</tt>,
+otherwise nothing).
 
 Available options to <tt>HtmlNamespacing::Plugin::Sass.install</tt> are:
 
@@ -229,66 +246,80 @@ reader.
 
 === jQuery Namespacing
 
-Insert the following before all other JavaScript:
+Use the following Rails helper, possibly in your default layout:
 
-  $(document).ready(function() {
-    $.NS = {};
-  
-    var SPLIT_REGEX = /\s+/;
-  
-    function populate_NS_from_node(node) {
-      var node_stack = [];
-      node_stack.push(node);
-  
-      while (node_stack.length) {
-        var cur_node = node_stack.pop();
-  
-        // Populate entry in $.NS
-        var class_name_list = node.className;
-        var class_names = class_name_list.split(SPLIT_REGEX);
-        for (var i = 0; i < class_names.length; i++) {
-          var class_name = class_names[i];
-          if (!$.NS[class_name]) {
-            $.NS[class_name] = [cur_node];
-          } else {
-            $.NS[class_name].push(cur_node);
-          }
-        }
-  
-        // "recurse" to the children, so they are handled in document order
-        var children = cur_node.childNodes;
-        for (var j = children.length - 1; j >= 0; j--) {
-          var subnode = children[j];
-          node_stack.push(subnode);
-        }
-      }
-    }
-  
-    populate_NS_from_node(document.getElementsByTagName('body')[0]);
-  });
+<tt>html_namespacing_javascript_tag(:jquery)</tt>
 
-(The CPU cost of this code is small but nonzero, as it precomputes many
-selectors. On a 75kb page with a 2.5Ghz computer, it might take 75ms with
-Firebug profiling turned on. This may or may not be faster than writing each
-selector by hand.)
+Afterwards, similar to our namespaced CSS framework above, you can easily
+namespace JavaScript behavior:
 
-Afterwards, if you set up a JavaScript framework similar to the CSS framework
-above, you can easily namespace JavaScript behavior:
+<tt>app/javascripts/views/foos/_description.js</tt>:
 
-<tt>javascripts/onload/foos/_description.js</tt>:
+  $NS().find('p').click(function() { alert("Yup, you clicked!"); });
 
-  $(document).ready(function() {
-    var $NS = $.NS['foos-_description']; // auto-generated line at top of file
-    $NS.find('p').click(function() { alert("Yup, you clicked!"); });
-  });
-
-In the above file, if every line but the third is automatically generated based
-on the file's location (an exercise, for now, left to the reader), the third
-line can be written in full confidence that only paragraphs within the
-<tt>_description</tt> partial will have this jQuery code bound. The end result?
-You can write code specific to one Rails partial without actually writing the
+You just write code specific to one Rails partial without actually writing the
 partial's name anywhere, and you will not need to rewrite any selectors if you
-rename or move the partial.
+rename or move the partial (as long as you rename or move the corresponding
+JavaScript file).
+
+(All namespaced JavaScript partials will be included inline, all in separate
+<tt>jQuery(document).ready()</tt> blocks. Two local variables will be
+available: <tt>NS</tt>, the namespace string, and <tt>$NS()</tt>, a function
+returning a jQuery object containing all elements at the root of the
+namespace.)
+
+=== Caching and JavaScript Namespacing
+
+Caching throws a wrench into operations.
+<tt>html_namespacing_javascript_tag()</tt> works by watching which templates get
+rendered; when reading from the cache, not all templates will have
+<tt>render()</tt> called on them.
+
+The general solution is to cache the list of rendered templates along with the
+data being cached. A new view method, <tt>html_rendering_rendered_paths</tt>,
+returns an Array to be used for this purpose. As a practical example, here is a
+plugin which makes JavaScript namespacing work with
+{cache_advance}[http://github.com/aub/cache_advance]:
+
+  class HtmlNamespacingCachePlugin
+    def self.key_suffix
+      'HTML_NAMESPACING_DATA'
+    end
+  
+    def cache_it_options(view)
+      { :view => view }
+    end
+  
+    def before_render(cache_name, cache_key, options)
+      options[:html_namespacing_rendered_paths_length] = paths(options).length
+    end
+  
+    def after_render(cache_name, cache_key, data, options)
+      old_length = options[:html_namespacing_rendered_paths_length]
+      new_length = paths(options).length
+  
+      delta = paths(options)[old_length..new_length]
+      unless delta.empty?
+        key = cache_key + self.class.key_suffix
+        Rails.cache.write(key, delta)
+      end
+    end
+  
+    def after_read(cache_name, cache_key, data, options)
+      key = cache_key + self.class.key_suffix
+      if delta = Rails.cache.read(key)
+        paths(options).concat(delta)
+      end
+    end
+  
+    protected
+  
+    def paths(options)
+      options[:view].html_namespacing_rendered_paths
+    end
+  end
+
+Other plugins are welcome; I will consider integrating them into this project.
 
 == Tips and Tricks
 
@@ -312,10 +343,10 @@ Or this Sass:
 
 Or the following JavaScript (following the <tt>$NS</tt> example above):
 
-  var $div = $NS.find('div');
+  var $div = $NS().find('div');
 
-Nothing will be selected, because the <tt>div</tt> element is not a child. You
-would need the following CSS:
+Nothing will be selected, because the <tt>div</tt> element is not a child.
+Instead, you need the following CSS:
 
   div.foos-show { font-weight: bold; }
 
@@ -326,7 +357,7 @@ Or this sass:
 
 Or the following JavaScript:
 
-  var $div = $NS.filter('div');
+  var $div = $NS().filter('div');
 
 Also, watch out for nesting: selectors with the <tt>foos-show</tt> namespace
 will match anything inside any partials rendered by
@@ -338,9 +369,12 @@ HTML namespacing produces plenty of tiny CSS and/or JavaScript files. Best
 practice is to bundle all namespaced files together: by virtue of being
 namespaced, it is safe to concatenate them. (Advanced CSS users should
 be thoughtful about
-"cascading order and specificity":http://www.w3.org/TR/CSS2/cascade.html#cascading-order;
+{cascading order and specificity}[http://www.w3.org/TR/CSS2/cascade.html#cascading-order]
 and anybody bundling JavaScript files together should wrap each with
-<tt>(function() { ... })();</tt> to prevent variable leakage.)
+<tt>(function() { ... })();</tt> to prevent variable leakage.) CSS files can be
+concatenated using a tool such as
+{asset_library}[http://github.com/adamh/asset_library]; JavaScript files are
+concatenated automatically in <tt>html_namespacing_javascript_tag()</tt>.
 
 These and similar strategies should be considered when building an HTML
 namespacing framework.
