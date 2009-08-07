@@ -31,6 +31,10 @@ module HtmlNamespacing
         @options[:javascript_optional_suffix]
       end
 
+      def self.template_formats
+        @formats ||= Set.new(@options[:template_formats] || ['html'])
+      end
+
       module Helpers
         def html_namespacing_javascript_tag(framework)
           files = html_namespacing_files
@@ -108,7 +112,7 @@ module HtmlNamespacing
 
             view.html_namespacing_rendered_paths << path_without_format_and_extension if view.respond_to?(:html_namespacing_rendered_paths)
 
-            if format == 'html'
+            if HtmlNamespacing::Plugin::Rails.template_formats.include?(format)
               add_namespace_to_html(html, view)
             else
               html

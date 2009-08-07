@@ -175,6 +175,9 @@ gain access to this method.
 <tt>:javascript_root</tt>: Root of namespaced JavaScript files, if you are
 using <tt>html_namespacing_javascript_tag()</tt> (see below).
 
+<tt>:template_formats</tt>: If set (to an Array), apply HTML namespacing
+under the given (String) formats. Default is <tt>['html']</tt>.
+
 <tt>:javascript_optional_suffix</tt>: optional suffix for your JavaScript
 files, if you are using <tt>html_namespacing_javascript_tag()</tt>. For
 instance, if <tt>:javascript_optional_suffix</tt> is <tt>'compressed'</tt> and
