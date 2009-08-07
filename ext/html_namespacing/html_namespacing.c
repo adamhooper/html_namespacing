@@ -424,18 +424,25 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                 break;
             case PARSE_OPEN_TAG:
                 if (*html == '/' || *html == '>') {
+
                     if (num_tags_open == 0 && !open_tag_had_class_attribute
                             && !should_ignore_tag(open_tag_name, open_tag_name_len)) {
-                        APPEND_STRING(" class=\"");
-                        APPEND_STRING(ns);
-                        APPEND_STRING("\"");
+                        if (*html == '/' && char_is_whitespace(*(html - 1))) {
+                            /* We're in an empty tag with a trailing space */
+                            APPEND_STRING("class=\"");
+                            APPEND_STRING(ns);
+                            APPEND_STRING("\" ");
+                        } else {
+                            APPEND_STRING(" class=\"");
+                            APPEND_STRING(ns);
+                            APPEND_STRING("\"");
+                        }
                     }
 
                     open_tag_had_class_attribute = 0;
                     open_tag_attribute_value = NULL;
 
                     if (*html == '/') {
-                        APPEND_STRING(" ");
                         state = PARSE_EMPTY_TAG;
                     } else {
                         num_tags_open++;
