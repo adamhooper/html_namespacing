@@ -22,56 +22,10 @@ static const char* const IGNORE_TAGS[] = {
     NULL
 };
 
-/*
- * Returns the first power of 2 which is >= the given length.
- */
 static int
-round_to_power_of_two(int i)
+determine_alloc_size_of_at_least(int i)
 {
-    int j = 1;
-
-    while (j < i) {
-        j <<= 1;
-    }
-
-    return j;
-}
-
-/*
- * Returns the number of bytes in the first utf-8 character of *utf8.
- */
-static size_t
-utf8_char_bytes(const char *utf8)
-{
-    size_t i;
-    const unsigned char *u;
-
-    if (utf8[0] < 0x80) {
-        return 1;
-    }
-
-    u = (const unsigned char *) utf8;
-
-    for (i = 1; i < 6; i++) {
-        if ((u[i] & 0xc0) != 0x80) {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
-/*
- * Copies num_bytes bytes from *src_p to *dest_p, doing no bounds checking.
- *
- * Advances *dest_p and *src_p by num_bytes.
- */
-static void
-copy_n_bytes_and_advance(char **dest_p, const char **src_p, size_t num_bytes)
-{
-    memcpy(*dest_p, *src_p, num_bytes);
-    *dest_p += num_bytes;
-    *src_p += num_bytes;
+    return i + 1024;
 }
 
 /*
@@ -120,57 +74,6 @@ ensure_string_length(
 }
 
 /*
- * Tries to copy a single utf8 character to dest, possibly reallocating.
- *
- * Arguments:
- *   - dest: Beginning of destination string. May be reallocated during copy.
- *   - dest_len: Amount of memory allocated to dest. May be increased during
- *     copy.
- *   - dest_p: Pointer to end of destination string (potentially 1 past the
- *     allocated length of dest).
- *   - src_p: Source string. Will be advanced.
- *
- * Returns:
- *   - 0 on success. dest may be changed; dest_p will be incremented; src_p
- *     will be incremented.
- *   - ENOMEM if reallocation failed. dest, dest_p, and src_p will remain
- *     unchanged.
- */
-static int
-append_next_utf8_char(
-        char **dest,
-        size_t *dest_len,
-        char **dest_p,
-        const char **src_p,
-        HtmlNamespacingAllocationStrategy allocation_strategy)
-{
-    size_t c_num_utf8_bytes;
-    size_t dest_p_offset;
-    size_t new_dest_len;
-    char *new_dest;
-    int rv;
-
-    c_num_utf8_bytes = utf8_char_bytes(*src_p);
-    new_dest = *dest;
-    dest_p_offset = *dest_p - *dest;
-    new_dest_len = dest_p_offset + c_num_utf8_bytes;
-
-    rv = ensure_string_length(
-            &new_dest, dest_len, new_dest_len, allocation_strategy);
-    if (rv == ENOMEM) {
-        return ENOMEM;
-    }
-    if (new_dest != *dest) {
-        *dest = new_dest;
-        *dest_p = new_dest + dest_p_offset;
-    }
-
-    copy_n_bytes_and_advance(dest_p, src_p, c_num_utf8_bytes);
-
-    return 0;
-}
-
-/*
  * Tries to copy s into dest, possibly reallocating.
  *
  * Arguments:
@@ -191,15 +94,14 @@ append_string(
         size_t *dest_len,
         char **dest_p,
         const char *s,
+        size_t len,
         HtmlNamespacingAllocationStrategy allocation_strategy)
 {
-    int len;
     int rv;
     size_t dest_p_offset;
     size_t new_dest_len;
     char *new_dest;
 
-    len = strlen(s);
     new_dest = *dest;
     dest_p_offset = *dest_p - *dest;
     new_dest_len = dest_p_offset + len;
@@ -219,63 +121,6 @@ append_string(
 
     return 0;
 };
-
-static int
-append_next_chars_until(
-        char **dest,
-        size_t *dest_len,
-        char **dest_p,
-        const char **src_p,
-        const char *until_chars,
-        HtmlNamespacingAllocationStrategy allocation_strategy)
-{
-    size_t num_bytes;
-    size_t dest_p_offset;
-    size_t new_dest_len;
-    char *new_dest;
-    int rv;
-
-    num_bytes = strcspn(*src_p, until_chars);
-    new_dest = *dest;
-    dest_p_offset = *dest_p - *dest;
-    new_dest_len = dest_p_offset + num_bytes;
-
-    rv = ensure_string_length(
-            &new_dest, dest_len, new_dest_len, allocation_strategy);
-    if (rv == ENOMEM) {
-        return ENOMEM;
-    }
-    if (new_dest != *dest) {
-        *dest = new_dest;
-        *dest_p = new_dest + dest_p_offset;
-    }
-
-    copy_n_bytes_and_advance(dest_p, src_p, num_bytes);
-
-    return 0;
-}
-
-static int
-append_end_of_string(
-        char **dest,
-        size_t *dest_len,
-        char **dest_p,
-        HtmlNamespacingAllocationStrategy allocation_strategy)
-{
-    int rv;
-    const char *end = "\0";
-
-    rv = append_next_utf8_char(
-            dest, dest_len, dest_p, &end, allocation_strategy);
-
-    if (rv == 0) {
-        /* We don't add the length of '\0' */
-        *dest_len -= 1;
-        *dest_p -= 1;
-    }
-
-    return rv;
-}
 
 enum {
     PARSE_NORMAL,
@@ -351,19 +196,37 @@ add_namespace_to_html_with_length_and_allocation_strategy(
         HtmlNamespacingAllocationStrategy allocation_strategy)
 {
 
-#define APPEND_NEXT_CHAR() \
-        if (*html_p && append_next_utf8_char(&r, &r_len, &r_p, &html_p, allocation_strategy) != 0) goto error/*;*/
 #define APPEND_STRING(s) \
-        if (append_string(&r, &r_len, &r_p, s, allocation_strategy) != 0) goto error/*;*/
+        do { \
+            if (append_string(&r, &r_len, &r_p, s, strlen(s), allocation_strategy) != 0) goto error; \
+        } while (0)/*;*/
 #define APPEND_END_OF_STRING() \
-        if (append_end_of_string(&r, &r_len, &r_p, allocation_strategy) != 0) goto error/*;*/
-#define APPEND_NEXT_CHARS_UNTIL(chars) \
-        if (append_next_chars_until(&r, &r_len, &r_p, &html_p, chars, allocation_strategy) != 0) goto error/*;*/
+        do { \
+            if (append_string(&r, &r_len, &r_p, "", 1, allocation_strategy) != 0) goto error; \
+            r_len -= 1; \
+            r_p -= 1; \
+        } while (0)/*;*/
+#define COPY_TO_HERE() \
+        do { \
+            if (append_string(&r, &r_len, &r_p, html_first_uncopied_p, html_p - html_first_uncopied_p, allocation_strategy) != 0) goto error; \
+            html_first_uncopied_p = html_p; \
+        } while (0)/*;*/
+#define ADVANCE(n) \
+        do { \
+            if (html_p + n <= html + html_len) { \
+                html_p += n; \
+            } else { \
+                html_p = html + html_len; \
+            } \
+        } while (0)/*;*/
+#define ADVANCE_UNTIL_ONE_OF_THESE_CHARS(chars) \
+        ADVANCE(strcspn(html_p, chars))/*;*/
 
     unsigned int state;
     char *r; /* Start of retval */
     char *r_p; /* Pointer in retval */
     size_t r_len; /* Length of retval */
+    const char *html_first_uncopied_p;
     const char *html_p;
     const char *open_tag_name = NULL;
     size_t open_tag_name_len = 0;
@@ -373,13 +236,13 @@ add_namespace_to_html_with_length_and_allocation_strategy(
     int open_tag_had_class_attribute;
     const char *open_tag_attribute_value;
 
-    r_len = round_to_power_of_two(html_len);
+    r_len = determine_alloc_size_of_at_least(html_len);
     r = allocation_strategy.malloc(sizeof(char) * r_len);
     if (!r) {
         return ENOMEM;
     }
 
-    html_p = html;
+    html_first_uncopied_p = html_p = html;
     state = PARSE_NORMAL;
     r_p = r;
     num_tags_open = 0;
@@ -394,7 +257,7 @@ add_namespace_to_html_with_length_and_allocation_strategy(
         switch (state) {
             case PARSE_NORMAL:
                 if (*html_p == '<') {
-                    APPEND_NEXT_CHAR();
+                    ADVANCE(1);
                     if (num_chars_remaining >= 9
                             && 0 == strncmp("![CDATA[", html_p, 8)) {
                         state = PARSE_CDATA;
@@ -414,19 +277,19 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                         state = PARSE_OPEN_TAG_NAME;
                     }
                 } else {
-                    APPEND_NEXT_CHARS_UNTIL("<");
+                    ADVANCE_UNTIL_ONE_OF_THESE_CHARS("<");
                 }
                 break;
             case PARSE_OPEN_TAG_NAME:
-                APPEND_NEXT_CHARS_UNTIL(WHITE_SPACE ">/");
+                ADVANCE_UNTIL_ONE_OF_THESE_CHARS(WHITE_SPACE ">/");
                 open_tag_name_len = html_p - open_tag_name;
                 state = PARSE_OPEN_TAG;
                 break;
             case PARSE_OPEN_TAG:
                 if (*html_p == '/' || *html_p == '>') {
-
                     if (num_tags_open == 0 && !open_tag_had_class_attribute
                             && !should_ignore_tag(open_tag_name, open_tag_name_len)) {
+                        COPY_TO_HERE();
                         if (*html_p == '/' && char_is_whitespace(*(html_p - 1))) {
                             /* We're in an empty tag with a trailing space */
                             APPEND_STRING("class=\"");
@@ -448,7 +311,7 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                         num_tags_open++;
                         state = PARSE_NORMAL;
                     }
-                    APPEND_NEXT_CHAR();
+                    ADVANCE(1);
                 } else if (!char_is_whitespace(*html_p)) {
                     if (num_chars_remaining >= 5
                             && 0 == strncmp(html_p, "class", 5)) {
@@ -459,68 +322,67 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                     }
                     state = PARSE_OPEN_TAG_ATTRIBUTE_NAME;
                 } else {
-                    APPEND_NEXT_CHAR();
+                    ADVANCE(1);
                 }
                 break;
             case PARSE_OPEN_TAG_ATTRIBUTE_NAME:
-                APPEND_NEXT_CHARS_UNTIL("=");
+                ADVANCE_UNTIL_ONE_OF_THESE_CHARS("=");
+                ADVANCE(1);
                 state = PARSE_OPEN_TAG_ATTRIBUTE_EQUALS;
-                APPEND_NEXT_CHAR();
                 break;
             case PARSE_OPEN_TAG_ATTRIBUTE_EQUALS:
-                APPEND_NEXT_CHARS_UNTIL("'\"");
+                ADVANCE_UNTIL_ONE_OF_THESE_CHARS("'\"");
                 open_tag_attribute_value = html_p;
                 state = PARSE_OPEN_TAG_ATTRIBUTE_VALUE;
-                APPEND_NEXT_CHAR();
+                ADVANCE(1);
                 break;
             case PARSE_OPEN_TAG_ATTRIBUTE_VALUE:
-                APPEND_NEXT_CHARS_UNTIL("'\"");
+                ADVANCE_UNTIL_ONE_OF_THESE_CHARS("'\"");
                 /* open_tag_attribute_value is either ' or " */
                 while (*html_p != *open_tag_attribute_value) {
-                    APPEND_NEXT_CHAR();
-                    APPEND_NEXT_CHARS_UNTIL("'\"");
+                    ADVANCE(1);
+                    ADVANCE_UNTIL_ONE_OF_THESE_CHARS("'\"");
                 }
                 if (open_tag_attribute_is_class_attribute
                         && num_tags_open == 0) {
+                    COPY_TO_HERE();
                     APPEND_STRING(" ");
                     APPEND_STRING(ns);
                 }
                 open_tag_attribute_is_class_attribute = 0;
                 state = PARSE_OPEN_TAG;
-                APPEND_NEXT_CHAR();
+                ADVANCE(1);
                 break;
             case PARSE_CLOSE_TAG:
-                APPEND_NEXT_CHARS_UNTIL(">");
+                ADVANCE_UNTIL_ONE_OF_THESE_CHARS(">");
                 num_tags_open--;
                 open_tag_attribute_value = NULL;
                 state = PARSE_NORMAL;
-                APPEND_NEXT_CHAR();
+                ADVANCE(1);
                 break;
             case PARSE_EMPTY_TAG:
             case PARSE_XML_DECL:
             case PARSE_DOCTYPE:
-                APPEND_NEXT_CHARS_UNTIL(">");
+                ADVANCE_UNTIL_ONE_OF_THESE_CHARS(">");
+                ADVANCE(1);
                 state = PARSE_NORMAL;
-                APPEND_NEXT_CHAR();
                 break;
             case PARSE_COMMENT:
-                APPEND_NEXT_CHAR(); /* at least one */
-                APPEND_NEXT_CHARS_UNTIL("-");
+                ADVANCE(1); /* at least one */
+                ADVANCE_UNTIL_ONE_OF_THESE_CHARS("-");
                 if (*html_p == '-' && num_chars_remaining >= 3
                         && 0 == strncmp("->", html_p, 2)) {
-                    APPEND_NEXT_CHAR();
-                    APPEND_NEXT_CHAR();
+                    ADVANCE(2);
                     state = PARSE_NORMAL;
                 }
                 /* else loop... */
                 break;
             case PARSE_CDATA:
-                APPEND_NEXT_CHAR(); /* at least one */
-                APPEND_NEXT_CHARS_UNTIL("]");
+                ADVANCE(1); /* at least one */
+                ADVANCE_UNTIL_ONE_OF_THESE_CHARS("]");
                 if (*html_p == ']' && num_chars_remaining >= 3
                         && 0 == strncmp("]>", html_p, 2)) {
-                    APPEND_NEXT_CHAR();
-                    APPEND_NEXT_CHAR();
+                    ADVANCE(2);
                     state = PARSE_NORMAL;
                 }
                 /* else loop... */
@@ -530,6 +392,7 @@ add_namespace_to_html_with_length_and_allocation_strategy(
         }
     }
 
+    COPY_TO_HERE();
     APPEND_END_OF_STRING();
 
     if (state != PARSE_NORMAL
