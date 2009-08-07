@@ -352,19 +352,19 @@ add_namespace_to_html_with_length_and_allocation_strategy(
 {
 
 #define APPEND_NEXT_CHAR() \
-        if (*html && append_next_utf8_char(&r, &r_len, &r_p, &html, allocation_strategy) != 0) goto error/*;*/
+        if (*html_p && append_next_utf8_char(&r, &r_len, &r_p, &html_p, allocation_strategy) != 0) goto error/*;*/
 #define APPEND_STRING(s) \
         if (append_string(&r, &r_len, &r_p, s, allocation_strategy) != 0) goto error/*;*/
 #define APPEND_END_OF_STRING() \
         if (append_end_of_string(&r, &r_len, &r_p, allocation_strategy) != 0) goto error/*;*/
 #define APPEND_NEXT_CHARS_UNTIL(chars) \
-        if (append_next_chars_until(&r, &r_len, &r_p, &html, chars, allocation_strategy) != 0) goto error/*;*/
+        if (append_next_chars_until(&r, &r_len, &r_p, &html_p, chars, allocation_strategy) != 0) goto error/*;*/
 
     unsigned int state;
     char *r; /* Start of retval */
     char *r_p; /* Pointer in retval */
     size_t r_len; /* Length of retval */
-    const char *html_start;
+    const char *html_p;
     const char *open_tag_name = NULL;
     size_t open_tag_name_len = 0;
     size_t num_chars_remaining;
@@ -379,7 +379,7 @@ add_namespace_to_html_with_length_and_allocation_strategy(
         return ENOMEM;
     }
 
-    html_start = html;
+    html_p = html;
     state = PARSE_NORMAL;
     r_p = r;
     num_tags_open = 0;
@@ -388,29 +388,29 @@ add_namespace_to_html_with_length_and_allocation_strategy(
     open_tag_attribute_value = NULL;
 
     while (1) {
-        num_chars_remaining = html_len - (html - html_start);
+        num_chars_remaining = html_len - (html_p - html);
         if (num_chars_remaining <= 0) break;
 
         switch (state) {
             case PARSE_NORMAL:
-                if (*html == '<') {
+                if (*html_p == '<') {
                     APPEND_NEXT_CHAR();
                     if (num_chars_remaining >= 9
-                            && 0 == strncmp("![CDATA[", html, 8)) {
+                            && 0 == strncmp("![CDATA[", html_p, 8)) {
                         state = PARSE_CDATA;
-                    } else if (num_chars_remaining >= 2 && html[0] == '/') {
+                    } else if (num_chars_remaining >= 2 && html_p[0] == '/') {
                         state = PARSE_CLOSE_TAG;
                     } else if (num_chars_remaining >= 4
-                            && 0 == strncmp("!--", html, 3)) {
+                            && 0 == strncmp("!--", html_p, 3)) {
                         state = PARSE_COMMENT;
                     } else if (num_chars_remaining >= 9
-                            && 0 == strncmp("!DOCTYPE", html, 8)) {
+                            && 0 == strncmp("!DOCTYPE", html_p, 8)) {
                         state = PARSE_DOCTYPE;
                     } else if (num_chars_remaining >= 5
-                            && 0 == strncmp("?xml", html, 4)) {
+                            && 0 == strncmp("?xml", html_p, 4)) {
                         state = PARSE_XML_DECL;
                     } else {
-                        open_tag_name = html;
+                        open_tag_name = html_p;
                         state = PARSE_OPEN_TAG_NAME;
                     }
                 } else {
@@ -419,15 +419,15 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                 break;
             case PARSE_OPEN_TAG_NAME:
                 APPEND_NEXT_CHARS_UNTIL(WHITE_SPACE ">/");
-                open_tag_name_len = html - open_tag_name;
+                open_tag_name_len = html_p - open_tag_name;
                 state = PARSE_OPEN_TAG;
                 break;
             case PARSE_OPEN_TAG:
-                if (*html == '/' || *html == '>') {
+                if (*html_p == '/' || *html_p == '>') {
 
                     if (num_tags_open == 0 && !open_tag_had_class_attribute
                             && !should_ignore_tag(open_tag_name, open_tag_name_len)) {
-                        if (*html == '/' && char_is_whitespace(*(html - 1))) {
+                        if (*html_p == '/' && char_is_whitespace(*(html_p - 1))) {
                             /* We're in an empty tag with a trailing space */
                             APPEND_STRING("class=\"");
                             APPEND_STRING(ns);
@@ -442,16 +442,16 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                     open_tag_had_class_attribute = 0;
                     open_tag_attribute_value = NULL;
 
-                    if (*html == '/') {
+                    if (*html_p == '/') {
                         state = PARSE_EMPTY_TAG;
                     } else {
                         num_tags_open++;
                         state = PARSE_NORMAL;
                     }
                     APPEND_NEXT_CHAR();
-                } else if (!char_is_whitespace(*html)) {
+                } else if (!char_is_whitespace(*html_p)) {
                     if (num_chars_remaining >= 5
-                            && 0 == strncmp(html, "class", 5)) {
+                            && 0 == strncmp(html_p, "class", 5)) {
                         open_tag_attribute_is_class_attribute = 1;
                         open_tag_had_class_attribute = 1;
                     } else {
@@ -469,14 +469,14 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                 break;
             case PARSE_OPEN_TAG_ATTRIBUTE_EQUALS:
                 APPEND_NEXT_CHARS_UNTIL("'\"");
-                open_tag_attribute_value = html;
+                open_tag_attribute_value = html_p;
                 state = PARSE_OPEN_TAG_ATTRIBUTE_VALUE;
                 APPEND_NEXT_CHAR();
                 break;
             case PARSE_OPEN_TAG_ATTRIBUTE_VALUE:
                 APPEND_NEXT_CHARS_UNTIL("'\"");
                 /* open_tag_attribute_value is either ' or " */
-                while (*html != *open_tag_attribute_value) {
+                while (*html_p != *open_tag_attribute_value) {
                     APPEND_NEXT_CHAR();
                     APPEND_NEXT_CHARS_UNTIL("'\"");
                 }
@@ -506,8 +506,8 @@ add_namespace_to_html_with_length_and_allocation_strategy(
             case PARSE_COMMENT:
                 APPEND_NEXT_CHAR(); /* at least one */
                 APPEND_NEXT_CHARS_UNTIL("-");
-                if (*html == '-' && num_chars_remaining >= 3
-                        && 0 == strncmp("->", html, 2)) {
+                if (*html_p == '-' && num_chars_remaining >= 3
+                        && 0 == strncmp("->", html_p, 2)) {
                     APPEND_NEXT_CHAR();
                     APPEND_NEXT_CHAR();
                     state = PARSE_NORMAL;
@@ -517,8 +517,8 @@ add_namespace_to_html_with_length_and_allocation_strategy(
             case PARSE_CDATA:
                 APPEND_NEXT_CHAR(); /* at least one */
                 APPEND_NEXT_CHARS_UNTIL("]");
-                if (*html == ']' && num_chars_remaining >= 3
-                        && 0 == strncmp("]>", html, 2)) {
+                if (*html_p == ']' && num_chars_remaining >= 3
+                        && 0 == strncmp("]>", html_p, 2)) {
                     APPEND_NEXT_CHAR();
                     APPEND_NEXT_CHAR();
                     state = PARSE_NORMAL;
