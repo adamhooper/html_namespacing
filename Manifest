@@ -12,5 +12,5 @@ lib/html_namespacing/plugin/dom_scan_jquery.compressed.js
 lib/html_namespacing/plugin/rails.rb
 lib/html_namespacing/plugin/dom_scan_jquery.js
 lib/html_namespacing/plugin/sass.rb
-Manifest
 html_namespacing.gemspec
+Manifest

@@ -2,16 +2,16 @@
 
 Gem::Specification.new do |s|
   s.name = %q{html_namespacing}
-  s.version = "0.1.1"
+  s.version = "0.1.2"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 1.2") if s.respond_to? :required_rubygems_version=
   s.authors = ["Adam Hooper"]
-  s.date = %q{2009-08-07}
+  s.date = %q{2009-08-10}
   s.description = %q{Inserts "class=" attributes within snippets of HTML so CSS and JavaScript can use automatic scopes}
   s.email = %q{adam@adamhooper.com}
   s.extensions = ["ext/html_namespacing/extconf.rb"]
   s.extra_rdoc_files = ["README.rdoc"]
-  s.files = ["README.rdoc", "Rakefile", "test/c_extension_test.rb", "test/test_helper.rb", "ext/html_namespacing/extconf.rb", "ext/html_namespacing/html_namespacing.h", "ext/html_namespacing/html_namespacing.c", "ext/html_namespacing/html_namespacing_ext.c", "lib/html_namespacing.rb", "lib/html_namespacing/plugin.rb", "lib/html_namespacing/plugin/dom_scan_jquery.compressed.js", "lib/html_namespacing/plugin/rails.rb", "lib/html_namespacing/plugin/dom_scan_jquery.js", "lib/html_namespacing/plugin/sass.rb", "Manifest", "html_namespacing.gemspec"]
+  s.files = ["README.rdoc", "Rakefile", "test/c_extension_test.rb", "test/test_helper.rb", "ext/html_namespacing/extconf.rb", "ext/html_namespacing/html_namespacing.h", "ext/html_namespacing/html_namespacing.c", "ext/html_namespacing/html_namespacing_ext.c", "lib/html_namespacing.rb", "lib/html_namespacing/plugin.rb", "lib/html_namespacing/plugin/dom_scan_jquery.compressed.js", "lib/html_namespacing/plugin/rails.rb", "lib/html_namespacing/plugin/dom_scan_jquery.js", "lib/html_namespacing/plugin/sass.rb", "html_namespacing.gemspec", "Manifest"]
   s.has_rdoc = true
   s.homepage = %q{http://github.com/adamh/html_namespacing}
   s.rdoc_options = ["--line-numbers", "--inline-source", "--title", "Html_namespacing", "--main", "README.rdoc"]
@@ -31,4 +31,3 @@ Gem::Specification.new do |s|
   else
   end
 end
-
