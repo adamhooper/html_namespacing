@@ -55,7 +55,7 @@ module HtmlNamespacing
         HtmlNamespaceJs = {
           :jquery => {
             :top => File.open(File.join(File.dirname(__FILE__), 'dom_scan_jquery.compressed.js')) { |f| f.read },
-            :each => 'jQuery(function($){var NS=%s,$NS=function(){return $($.NS[NS])};%s});'
+            :each => 'jQuery(function($){var NS=%s,$NS=function(){return $($.NS[NS]||[])};%s});'
           }
         }
 
