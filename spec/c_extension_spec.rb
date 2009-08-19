@@ -1,22 +1,24 @@
 #!/usr/bin/env ruby
 
-require File.dirname(__FILE__) + '/test_helper'
+require File.dirname(__FILE__) + '/spec_helper'
 
-class CExtensionTest < Test::Unit::TestCase
+describe(HtmlNamespacing) do
   private
 
   def self.define_test(name, html, ns, expect)
-    define_method("test_#{name}".to_sym) do
-      assert_equal(expect, f(html, ns))
+    it("should work with #{name}") do
+      f(html, ns).should == expect
     end
   end
 
   def self.define_failing_test(name, html)
-    define_method("test_#{name}".to_sym) do
-      assert_raises(ArgumentError) do
-        f(html, 'X')
-      end
+    it("should fail on #{name}") do
+      lambda { f(html, 'X') }.should raise_error(ArgumentError)
     end
+  end
+
+  def f(html, ns)
+    HtmlNamespacing::add_namespace_to_html(html, ns)
   end
 
   self.define_test('nil HTML', nil, 'X', nil)
@@ -45,11 +47,7 @@ class CExtensionTest < Test::Unit::TestCase
     self.define_test("ignores <#{tag}> tags", "<#{tag}>foo</#{tag}>", "X", "<#{tag}>foo</#{tag}>")
   end
 
-  self.define_failing_test('unclosed tag fails', '<div>foo')
-  self.define_failing_test('closing tag fails', 'foo</div>')
-  self.define_failing_test('wrong attr syntax fails', '<div foo=bar>foo</div>')
-
-  def f(html, ns)
-    HtmlNamespacing::add_namespace_to_html(html, ns)
-  end
+  self.define_failing_test('unclosed tag', '<div>foo')
+  self.define_failing_test('closing tag', 'foo</div>')
+  self.define_failing_test('wrong attr syntax', '<div foo=bar>foo</div>')
 end

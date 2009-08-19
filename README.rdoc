@@ -183,7 +183,7 @@ files, if you are using <tt>html_namespacing_javascript_tag()</tt>. For
 instance, if <tt>:javascript_optional_suffix</tt> is <tt>'compressed'</tt> and
 you rendered the partial <tt>app/views/foos/_foo.html.haml</tt>, then the
 (presumably minified) file
-<tt>app/javascripts/views/foos/_foo.compressed.js</tt> will be included if it
+<tt>app/javascripts/views/foos/_foo.js.compressed</tt> will be included if it
 exists (otherwise the standard <tt>app/javascripts/views/foos/_foo.js</tt>,
 otherwise nothing).
 
@@ -251,7 +251,7 @@ reader.
 
 Use the following Rails helper, possibly in your default layout:
 
-<tt>html_namespacing_javascript_tag(:jquery)</tt>
+  html_namespacing_javascript_tag(:jquery)
 
 Afterwards, similar to our namespaced CSS framework above, you can easily
 namespace JavaScript behavior:
@@ -270,6 +270,18 @@ JavaScript file).
 available: <tt>NS</tt>, the namespace string, and <tt>$NS()</tt>, a function
 returning a jQuery object containing all elements at the root of the
 namespace.)
+
+In a more complex setup, you may prefer to add another extension, like so:
+
+  html_namespacing_javascript_tag(:jquery, :format => :mobile)
+
+This will find <tt>app/javascripts/views/foos/_description.mobile.js</tt> and
+will ignore <tt>app/javascripts/views/foos/_description.js</tt>. Neglecting the
+second parameter, <tt>html_namespacing_javascript_tag()</tt> would include
+<tt>_description.js</tt> and <em>exclude</em> <tt>_description.mobile.js</tt>:
+only single-extension JavaScript will be included. To include both, use:
+
+  html_namespacing_javascript_tag(:jquery, :format => [nil, :mobile])
 
 === Caching and JavaScript Namespacing
 

@@ -36,14 +36,17 @@ module HtmlNamespacing
       end
 
       module Helpers
-        def html_namespacing_javascript_tag(framework)
-          files = html_namespacing_files
+        def html_namespacing_javascript_tag(framework, options = {})
+          files = html_namespacing_files(options[:format])
+          root = Pathname.new(::HtmlNamespacing::Plugin::Rails.javascript_root)
+
           unless files.empty?
             r = "<script type=\"text/javascript\"><!--//--><![CDATA[//><!--\n"
             r << HtmlNamespaceJs[framework][:top]
             r << "\n"
-            files.collect do |relative_path, absolute_path|
-              r << html_namespacing_inline_js(framework, relative_path, absolute_path)
+            files.collect do |path|
+              relative_path = Pathname.new(path).relative_path_from(root)
+              r << html_namespacing_inline_js(framework, relative_path.to_s, path)
               r << "\n"
             end
             r << "//--><!]]></script>"
@@ -54,40 +57,25 @@ module HtmlNamespacing
 
         HtmlNamespaceJs = {
           :jquery => {
-            :top => File.open(File.join(File.dirname(__FILE__), 'dom_scan_jquery.compressed.js')) { |f| f.read },
+            :top => File.open(File.join(File.dirname(__FILE__), 'dom_scan_jquery.js.compressed')) { |f| f.read },
             :each => 'jQuery(function($){var NS=%s,$NS=function(){return $($.NS[NS]||[])};%s});'
           }
         }
 
-        def html_namespacing_files
-          suffix = ::HtmlNamespacing::Plugin::Rails.javascript_optional_suffix
-          root = ::HtmlNamespacing::Plugin::Rails.javascript_root
-
-          r = html_namespacing_rendered_paths
-          
-          r.uniq!
-
-          r.collect! do |relative_path|
-            prefix = File.join(root, relative_path)
-            absolute_path = "#{prefix}.js"
-            absolute_path_with_suffix = "#{prefix}.#{suffix}.js" if suffix
-
-            if suffix && File.exist?(absolute_path_with_suffix)
-              [relative_path, absolute_path_with_suffix]
-            elsif File.exist?(absolute_path)
-              [relative_path, absolute_path]
-            else
-              nil
-            end
+        def html_namespacing_files(format)
+          (Array === format ? format : [format]).inject([]) do |r, f|
+            r.concat(GlobFu.find(
+              html_namespacing_rendered_paths,
+              :suffix => 'js',
+              :extra_suffix => f && f.to_s,
+              :optional_suffix => ::HtmlNamespacing::Plugin::Rails.javascript_optional_suffix,
+              :root => ::HtmlNamespacing::Plugin::Rails.javascript_root
+            ))
           end
-
-          r.compact!
-
-          r
         end
 
         def html_namespacing_inline_js(framework, relative_path, absolute_path)
-          namespace = ::HtmlNamespacing::Plugin::Rails.path_to_namespace(relative_path)
+          namespace = ::HtmlNamespacing::Plugin::Rails.path_to_namespace(relative_path.sub(/\..*$/, ''))
           content = File.open(absolute_path) { |f| f.read }
 
           HtmlNamespaceJs[framework][:each] % [namespace.to_json, content]
