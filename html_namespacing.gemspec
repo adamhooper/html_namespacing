@@ -35,8 +35,7 @@ Gem::Specification.new do |s|
   s.summary = %q{Automatic HTML namespacing}
   s.test_files = [
     "spec/c_extension_spec.rb",
-     "spec/spec_helper.rb",
-     "test/test_helper.rb"
+     "spec/spec_helper.rb"
   ]
 
   if s.respond_to? :specification_version then
