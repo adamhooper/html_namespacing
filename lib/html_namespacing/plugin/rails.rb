@@ -1,3 +1,10 @@
+begin
+  require 'glob_fu'
+rescue LoadError
+  require 'rubygems'
+  require 'glob_fu'
+end
+
 module HtmlNamespacing
   module Plugin
     module Rails
