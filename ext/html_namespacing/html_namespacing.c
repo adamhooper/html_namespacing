@@ -381,7 +381,7 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                 ADVANCE(1); /* at least one */
                 ADVANCE_UNTIL_ONE_OF_THESE_CHARS("]");
                 if (*html_p == ']' && num_chars_remaining >= 3
-                        && 0 == strncmp("]>", html_p, 2)) {
+                        && 0 == strncmp("]>", ++html_p, 2)) {
                     ADVANCE(2);
                     state = PARSE_NORMAL;
                 }
