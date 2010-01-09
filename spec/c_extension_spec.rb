@@ -42,7 +42,8 @@ describe(HtmlNamespacing) do
   self.define_test('ignores DOCTYPE', '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><div>foo</div>', 'X', '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><div class="X">foo</div>')
   self.define_test('ignores CDATA', '<![CDATA[ignore <div class="foo">]] </div>]]><div>foo</div>', 'X', '<![CDATA[ignore <div class="foo">]] </div>]]><div class="X">foo</div>')
   self.define_test('ignores comments', '<!-- blah <div class="foo">foo</div> - <span/>--><div>foo</div>', 'X', '<!-- blah <div class="foo">foo</div> - <span/>--><div class="X">foo</div>')
-  self.define_test('detects CDATA end delimiter correctly', '<![CDATA[]><]]>', 'X', '<![CDATA[]><]]>')
+  self.define_test('detects CDATA end delimiter correctly', '<![CDATA[ ]>< ]]>', 'X', '<![CDATA[ ]>< ]]>')
+  self.define_test('detects comment end delimiter correctly', '<!-- ->< -->', 'X', '<!-- ->< -->')
 
   [ 'html', 'head', 'base', 'meta', 'title', 'link', 'script', 'noscript', 'style' ].each do |tag|
     self.define_test("ignores <#{tag}> tags", "<#{tag}>foo</#{tag}>", "X", "<#{tag}>foo</#{tag}>")
