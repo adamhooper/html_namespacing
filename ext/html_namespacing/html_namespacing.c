@@ -370,9 +370,9 @@ add_namespace_to_html_with_length_and_allocation_strategy(
             case PARSE_COMMENT:
                 ADVANCE(1); /* at least one */
                 ADVANCE_UNTIL_ONE_OF_THESE_CHARS("-");
-                if (*html_p == '-' && num_chars_remaining >= 3
-                        && 0 == strncmp("->", ++html_p, 2)) {
-                    ADVANCE(2);
+                if (num_chars_remaining >= 3
+                        && 0 == strncmp("-->", html_p, 3)) {
+                    ADVANCE(3);
                     state = PARSE_NORMAL;
                 }
                 /* else loop... */
@@ -380,9 +380,9 @@ add_namespace_to_html_with_length_and_allocation_strategy(
             case PARSE_CDATA:
                 ADVANCE(1); /* at least one */
                 ADVANCE_UNTIL_ONE_OF_THESE_CHARS("]");
-                if (*html_p == ']' && num_chars_remaining >= 3
-                        && 0 == strncmp("]>", ++html_p, 2)) {
-                    ADVANCE(2);
+                if (num_chars_remaining >= 3
+                        && 0 == strncmp("]]>", html_p, 3)) {
+                    ADVANCE(3);
                     state = PARSE_NORMAL;
                 }
                 /* else loop... */
