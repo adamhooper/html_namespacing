@@ -170,9 +170,9 @@ should_ignore_tag(const char *tag_name, size_t tag_len)
  * "<div class="foo"><span>Hello</span></div><p class="below foo">Goodbye</p>".
  *
  * Arguments:
- *   - const char *html: Original HTML string. Must be valid HTML, encoded as
- *     utf-8.
- *   - int html_len: Length of HTML string.
+ *   - const char *html: Original HTML string. Must be valid HTML encoded as
+ *     utf-8, \0-terminated.
+ *   - int html_len: Length of HTML string, without the \0.
  *   - const char *namespace: Namespace to add. Must be of the form
  *     "[a-zA-Z][-_a-zA-Z0-9]*".
  *   - char **ret: Pointer to return value, which will be newly-allocated. Will
@@ -230,7 +230,6 @@ add_namespace_to_html_with_length_and_allocation_strategy(
     const char *html_p;
     const char *open_tag_name = NULL;
     size_t open_tag_name_len = 0;
-    size_t num_chars_remaining;
     int num_tags_open;
     int open_tag_attribute_is_class_attribute;
     int open_tag_had_class_attribute;
@@ -251,26 +250,21 @@ add_namespace_to_html_with_length_and_allocation_strategy(
     open_tag_attribute_value = NULL;
 
     while (1) {
-        num_chars_remaining = html_len - (html_p - html);
-        if (num_chars_remaining <= 0) break;
+        if (html_p[0] == 0) break;
 
         switch (state) {
             case PARSE_NORMAL:
                 if (*html_p == '<') {
                     ADVANCE(1);
-                    if (num_chars_remaining >= 9
-                            && 0 == strncmp("![CDATA[", html_p, 8)) {
+                    if (0 == strncmp("![CDATA[", html_p, 8)) {
                         state = PARSE_CDATA;
-                    } else if (num_chars_remaining >= 2 && html_p[0] == '/') {
+                    } else if (html_p[0] == '/') {
                         state = PARSE_CLOSE_TAG;
-                    } else if (num_chars_remaining >= 4
-                            && 0 == strncmp("!--", html_p, 3)) {
+                    } else if (0 == strncmp("!--", html_p, 3)) {
                         state = PARSE_COMMENT;
-                    } else if (num_chars_remaining >= 9
-                            && 0 == strncmp("!DOCTYPE", html_p, 8)) {
+                    } else if (0 == strncmp("!DOCTYPE", html_p, 8)) {
                         state = PARSE_DOCTYPE;
-                    } else if (num_chars_remaining >= 5
-                            && 0 == strncmp("?xml", html_p, 4)) {
+                    } else if (0 == strncmp("?xml", html_p, 4)) {
                         state = PARSE_XML_DECL;
                     } else {
                         open_tag_name = html_p;
@@ -313,8 +307,7 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                     }
                     ADVANCE(1);
                 } else if (!char_is_whitespace(*html_p)) {
-                    if (num_chars_remaining >= 5
-                            && 0 == strncmp(html_p, "class", 5)) {
+                    if (0 == strncmp(html_p, "class", 5)) {
                         open_tag_attribute_is_class_attribute = 1;
                         open_tag_had_class_attribute = 1;
                     } else {
@@ -370,8 +363,7 @@ add_namespace_to_html_with_length_and_allocation_strategy(
             case PARSE_COMMENT:
                 ADVANCE(1); /* at least one */
                 ADVANCE_UNTIL_ONE_OF_THESE_CHARS("-");
-                if (num_chars_remaining >= 3
-                        && 0 == strncmp("-->", html_p, 3)) {
+                if (0 == strncmp("-->", html_p, 3)) {
                     ADVANCE(3);
                     state = PARSE_NORMAL;
                 }
@@ -380,8 +372,7 @@ add_namespace_to_html_with_length_and_allocation_strategy(
             case PARSE_CDATA:
                 ADVANCE(1); /* at least one */
                 ADVANCE_UNTIL_ONE_OF_THESE_CHARS("]");
-                if (num_chars_remaining >= 3
-                        && 0 == strncmp("]]>", html_p, 3)) {
+                if (0 == strncmp("]]>", html_p, 3)) {
                     ADVANCE(3);
                     state = PARSE_NORMAL;
                 }
@@ -397,7 +388,7 @@ add_namespace_to_html_with_length_and_allocation_strategy(
 
     if (state != PARSE_NORMAL
             || (r_p - r) < html_len
-            || num_chars_remaining != 0
+            || html_p != html + html_len
             || num_tags_open != 0
             || open_tag_attribute_is_class_attribute
             || open_tag_attribute_value)
