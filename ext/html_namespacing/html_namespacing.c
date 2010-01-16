@@ -9,18 +9,21 @@
 
 #define WHITE_SPACE " \t\r\n"
 
-static const char* const IGNORE_TAGS[] = {
-    "html",
-    "head",
-    "base",
-    "meta",
-    "title",
-    "link",
-    "script",
-    "noscript",
-    "style",
-    NULL
+static const struct IgnoreTag {
+    const char *str;
+    size_t len;
+} IGNORE_TAGS[] = {
+    { "html", 4 },
+    { "head", 4 },
+    { "base", 4 },
+    { "meta", 4 },
+    { "title", 5 },
+    { "link", 4 },
+    { "script", 6 },
+    { "noscript", 8 },
+    { "style", 5 }
 };
+static const int NUM_IGNORE_TAGS = 9;
 
 static int
 determine_alloc_size_of_at_least(int i)
@@ -147,12 +150,10 @@ static int
 should_ignore_tag(const char *tag_name, size_t tag_len)
 {
     int i = 0;
-    const char *test_ignore;
 
-    for (i = 0; (test_ignore = IGNORE_TAGS[i]); i++) {
-        if (0 == strncmp(test_ignore, tag_name, tag_len)
-                && strlen(test_ignore) == tag_len)
-        {
+    for (i = 0; i < NUM_IGNORE_TAGS; i++) {
+        if (tag_len == IGNORE_TAGS[i].len
+                && 0 == strncmp(IGNORE_TAGS[i].str, tag_name, tag_len)) {
             return 1;
         }
     }
@@ -196,9 +197,9 @@ add_namespace_to_html_with_length_and_allocation_strategy(
         HtmlNamespacingAllocationStrategy allocation_strategy)
 {
 
-#define APPEND_STRING(s) \
+#define APPEND_STRING(s, n) \
         do { \
-            if (append_string(&r, &r_len, &r_p, s, strlen(s), allocation_strategy) != 0) goto error; \
+            if (append_string(&r, &r_len, &r_p, s, n, allocation_strategy) != 0) goto error; \
         } while (0)/*;*/
 #define APPEND_END_OF_STRING() \
         do { \
@@ -234,6 +235,7 @@ add_namespace_to_html_with_length_and_allocation_strategy(
     int open_tag_attribute_is_class_attribute;
     int open_tag_had_class_attribute;
     const char *open_tag_attribute_value;
+    size_t ns_len = strlen(ns);
 
     r_len = determine_alloc_size_of_at_least(html_len);
     r = allocation_strategy.malloc(sizeof(char) * r_len);
@@ -286,13 +288,13 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                         COPY_TO_HERE();
                         if (*html_p == '/' && char_is_whitespace(*(html_p - 1))) {
                             /* We're in an empty tag with a trailing space */
-                            APPEND_STRING("class=\"");
-                            APPEND_STRING(ns);
-                            APPEND_STRING("\" ");
+                            APPEND_STRING("class=\"", 7);
+                            APPEND_STRING(ns, ns_len);
+                            APPEND_STRING("\" ", 2);
                         } else {
-                            APPEND_STRING(" class=\"");
-                            APPEND_STRING(ns);
-                            APPEND_STRING("\"");
+                            APPEND_STRING(" class=\"", 8);
+                            APPEND_STRING(ns, ns_len);
+                            APPEND_STRING("\"", 1);
                         }
                     }
 
@@ -339,8 +341,8 @@ add_namespace_to_html_with_length_and_allocation_strategy(
                 if (open_tag_attribute_is_class_attribute
                         && num_tags_open == 0) {
                     COPY_TO_HERE();
-                    APPEND_STRING(" ");
-                    APPEND_STRING(ns);
+                    APPEND_STRING(" ", 1);
+                    APPEND_STRING(ns, ns_len);
                 }
                 open_tag_attribute_is_class_attribute = 0;
                 state = PARSE_OPEN_TAG;
