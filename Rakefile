@@ -14,6 +14,7 @@ begin
     gem.extensions = ['ext/html_namespacing/extconf.rb']
     gem.add_dependency 'adamh-glob_fu', '>= 0.0.3'
   end
+  Jeweler::GemcutterTasks.new
 
 rescue LoadError
   puts "Jeweler (or a dependency) not available. Install it with: sudo gem install jeweler"
