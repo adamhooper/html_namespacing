@@ -221,7 +221,12 @@ add_namespace_to_html_with_length_and_allocation_strategy(
             } \
         } while (0)/*;*/
 #define ADVANCE_UNTIL_ONE_OF_THESE_CHARS(chars) \
-        ADVANCE(strcspn(html_p, chars))/*;*/
+        do { \
+          const size_t num_chars = strcspn(html_p, chars); \
+          ADVANCE(num_chars); \
+          if (*html_p == '\0') \
+            goto end; \
+        } while (0) /*;*/
 
     unsigned int state;
     char *r; /* Start of retval */
@@ -385,6 +390,7 @@ add_namespace_to_html_with_length_and_allocation_strategy(
         }
     }
 
+ end:
     COPY_TO_HERE();
     APPEND_END_OF_STRING();
 

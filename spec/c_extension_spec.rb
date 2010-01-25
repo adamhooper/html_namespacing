@@ -52,4 +52,7 @@ describe(HtmlNamespacing) do
   self.define_failing_test('unclosed tag', '<div>foo')
   self.define_failing_test('closing tag', 'foo</div>')
   self.define_failing_test('wrong attr syntax', '<div foo=bar>foo</div>')
+  self.define_failing_test("missing closing '>' on last tag", '<div foo="bar">foo</div')
+  self.define_failing_test('end of string during attribute value', '<div foo="x')
+  self.define_failing_test('end of string during doctype declaration', '<!DOCTYPE')
 end
