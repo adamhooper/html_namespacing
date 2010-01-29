@@ -34,8 +34,16 @@ module HtmlNamespacing
         @options[:javascript_root] || RAILS_ROOT + '/app/javascripts/views'
       end
 
+      def self.stylesheet_root
+        @options[:stylesheet_root] || RAILS_ROOT + '/app/stylesheets/views'
+      end
+
       def self.javascript_optional_suffix
         @options[:javascript_optional_suffix]
+      end
+
+      def self.stylesheet_optional_suffix
+        @options[:stylesheet_optional_suffix]
       end
 
       def self.template_formats
@@ -43,20 +51,66 @@ module HtmlNamespacing
       end
 
       module Helpers
+        #
+        # Return the javascript for the rendered partials, wrapped in
+        # a script tag.
+        #
         def html_namespacing_javascript_tag(framework, options = {})
-          files = html_namespacing_files(options[:format])
-          root = Pathname.new(::HtmlNamespacing::Plugin::Rails.javascript_root)
+          js = html_namespacing_javascript(framework, options)
+          unless js.blank?
+            "<script type=\"text/javascript\"><!--//--><![CDATA[//><!--\n#{js}//--><!]]></script>"
+          end
+        end
 
+        #
+        # Return the javascript for the rendered partials.
+        #
+        def html_namespacing_javascript(framework, options = {})
+          root = Pathname.new(Rails.javascript_root)
+          optional_suffix = Rails.javascript_optional_suffix
+          files = html_namespacing_files('js',
+                                         :format => options[:format],
+                                         :optional_suffix => optional_suffix,
+                                         :root => root.to_s)
           unless files.empty?
-            r = "<script type=\"text/javascript\"><!--//--><![CDATA[//><!--\n"
-            r << HtmlNamespaceJs[framework][:top]
-            r << "\n"
-            files.collect do |path|
+            r = [HtmlNamespaceJs[framework][:top]] << "\n"
+            files.each do |path|
               relative_path = Pathname.new(path).relative_path_from(root)
-              r << html_namespacing_inline_js(framework, relative_path.to_s, path)
-              r << "\n"
+              r << html_namespacing_inline_js(framework, relative_path.to_s, path) << "\n"
             end
-            r << "//--><!]]></script>"
+            r.join
+          end
+        end
+
+        #
+        # Return the CSS for the rendered partials, wrapped in a style
+        # tag.
+        #
+        def html_namespacing_style_tag(options = {}, style_tag_attributes = {})
+          css = html_namespacing_styles(options)
+          unless css.blank?
+            attribute_string = style_tag_attributes.map{|k,v| " #{k}=\"#{v}\""}.join
+            "<style type=\"text/css\"#{attribute_string}>#{css}</style>"
+          end
+        end
+
+        #
+        # Return the CSS for the rendered partials.
+        #
+        def html_namespacing_styles(options = {})
+          root = Pathname.new(Rails.stylesheet_root)
+          optional_suffix = Rails.stylesheet_optional_suffix
+          files = html_namespacing_files('sass',
+                                         :format => options[:format],
+                                         :optional_suffix => optional_suffix,
+                                         :root => root.to_s)
+          unless files.empty?
+            r = []
+            files.each do |path|
+              relative_path = Pathname.new(path).relative_path_from(root)
+              r << html_namespacing_inline_css(relative_path.to_s, path)
+            end
+            r.join
           end
         end
 
@@ -69,14 +123,15 @@ module HtmlNamespacing
           }
         }
 
-        def html_namespacing_files(format)
+        def html_namespacing_files(suffix, options={})
+          format = options[:format]
           (Array === format ? format : [format]).inject([]) do |r, f|
             r.concat(GlobFu.find(
               html_namespacing_rendered_paths,
-              :suffix => 'js',
+              :suffix => suffix,
               :extra_suffix => f && f.to_s,
-              :optional_suffix => ::HtmlNamespacing::Plugin::Rails.javascript_optional_suffix,
-              :root => ::HtmlNamespacing::Plugin::Rails.javascript_root
+              :optional_suffix => options[:optional_suffix],
+              :root => options[:root]
             ))
           end
         end
@@ -86,6 +141,10 @@ module HtmlNamespacing
           content = File.open(absolute_path) { |f| f.read }
 
           HtmlNamespaceJs[framework][:each] % [namespace.to_json, content]
+        end
+
+        def html_namespacing_inline_css(relative_path, absolute_path)
+          HtmlNamespacing.options[:styles_for].call(relative_path, absolute_path)
         end
       end
 

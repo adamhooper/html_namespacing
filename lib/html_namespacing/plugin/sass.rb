@@ -1,10 +1,26 @@
 module HtmlNamespacing
   module Plugin
     module Sass
-      def self.install(options = {})
-        options[:prefix] ||= 'views'
-        options[:callback] ||= lambda { |p| HtmlNamespacing::Plugin.default_relative_path_to_namespace(p) }
-        Sass_2_2.install(options)
+      class << self
+        def install(options = {})
+          options[:prefix] ||= 'views'
+          options[:callback] ||= lambda { |p| HtmlNamespacing::Plugin.default_relative_path_to_namespace(p) }
+          options[:compress] ||= false
+          @options = options
+          Sass_2_2.install(options)
+          HtmlNamespacing.options[:styles_for] = method(:styles_for)
+        end
+
+        attr_reader :options
+
+        def sass_options
+          ::Sass::Plugin.options
+        end
+
+        def styles_for(relative_path, absolute_path)
+          css_path = File.join(sass_options[:css_location], self.options[:prefix], relative_path.sub(/\.[^\.\/]*\z/, '.css'))
+          File.read(css_path)
+        end
       end
 
       module Sass_2_2
@@ -46,7 +62,7 @@ module HtmlNamespacing
             end
 
             def namespacing_regex
-              /^#{Regexp.quote(options[:css_location])}\/#{Regexp.quote(namespacing_prefix)}\/(.*)\.css$/
+              /^#{Regexp.quote(Sass.sass_options[:css_location])}\/#{Regexp.quote(namespacing_prefix)}\/(.*)\.css$/
             end
 
             def namespace
