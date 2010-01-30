@@ -18,6 +18,7 @@ module HtmlNamespacing
         end
 
         def styles_for(relative_path, absolute_path)
+          # Assume the file exists. (If it was found by GlobFu, it should.)
           css_path = File.join(sass_options[:css_location], self.options[:prefix], relative_path.sub(/\.[^\.\/]*\z/, '.css'))
           File.read(css_path)
         end
