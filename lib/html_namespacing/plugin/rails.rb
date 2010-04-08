@@ -10,7 +10,11 @@ module HtmlNamespacing
     module Rails
       def self.install(options = {})
         @options = options
-        install_rails_2_3(options)
+        if ::Rails::VERSION::MAJOR == 3
+          install_rails_3(options)
+        else
+          install_rails_2_3(options)
+        end
       end
 
       # Called by ActionView
@@ -47,7 +51,7 @@ module HtmlNamespacing
       end
 
       def self.template_formats
-        @formats ||= Set.new(@options[:template_formats] || ['html'])
+        @formats ||= Set.new((@options[:template_formats] || [:html]).collect(&:to_sym))
       end
 
       module Helpers
@@ -58,7 +62,8 @@ module HtmlNamespacing
         def html_namespacing_javascript_tag(framework, options = {})
           js = html_namespacing_javascript(framework, options)
           unless js.blank?
-            "<script type=\"text/javascript\"><!--//--><![CDATA[//><!--\n#{js}//--><!]]></script>"
+            s = "<script type=\"text/javascript\"><!--//--><![CDATA[//><!--\n#{js}//--><!]]></script>"
+            s.respond_to?(:html_safe) && s.html_safe || s
           end
         end
 
@@ -90,7 +95,8 @@ module HtmlNamespacing
           css = html_namespacing_styles(options)
           unless css.blank?
             attribute_string = style_tag_attributes.map{|k,v| " #{k}=\"#{v}\""}.join
-            "<style type=\"text/css\"#{attribute_string}>#{css}</style>"
+            s = "<style type=\"text/css\"#{attribute_string}>#{css}</style>"
+            s.respond_to?(:html_safe) && s.html_safe || s
           end
         end
 
@@ -150,7 +156,7 @@ module HtmlNamespacing
 
       private
 
-      def self.install_rails_2_3(options = {})
+      def self.install_rails_all_versions(options)
         if options[:javascript]
           ::ActionView::Base.class_eval do
             attr_writer(:html_namespacing_rendered_paths)
@@ -161,12 +167,16 @@ module HtmlNamespacing
         end
 
         ::ActionView::Template.class_eval do
-          def render_with_html_namespacing(view, local_assigns = {})
-            html = render_without_html_namespacing(view, local_assigns)
+          def render_with_html_namespacing(*args, &block)
+            html = render_without_html_namespacing(*args, &block)
 
-            view.html_namespacing_rendered_paths << path_without_format_and_extension if view.respond_to?(:html_namespacing_rendered_paths)
+            view = args.first
 
-            if HtmlNamespacing::Plugin::Rails.template_formats.include?(format)
+            if view.respond_to?(:html_namespacing_rendered_paths)
+              view.html_namespacing_rendered_paths << html_namespacing_key
+            end
+
+            if HtmlNamespacing::Plugin::Rails.template_formats.include?(html_namespacing_format)
               add_namespace_to_html(html, view)
             else
               html
@@ -177,14 +187,49 @@ module HtmlNamespacing
           private
 
           def add_namespace_to_html(html, view)
-            HtmlNamespacing::add_namespace_to_html(html, html_namespace)
-          rescue ArgumentError => e
-            HtmlNamespacing::Plugin::Rails.handle_exception(e, self, view)
-            html # unless handle_exception() raised something
+            ret = begin
+              HtmlNamespacing::add_namespace_to_html(html, html_namespace)
+            rescue ArgumentError => e
+              HtmlNamespacing::Plugin::Rails.handle_exception(e, self, view)
+              html # unless handle_exception() raised something
+            end
+            ret.respond_to?(:html_safe) && ret.html_safe || ret
           end
 
           def html_namespace
-            HtmlNamespacing::Plugin::Rails.path_to_namespace(path_without_format_and_extension)
+            HtmlNamespacing::Plugin::Rails.path_to_namespace(html_namespacing_key)
+          end
+        end
+      end
+
+      def self.install_rails_3(options = {})
+        self.install_rails_all_versions(options)
+
+        ::ActionView::Template.class_eval do
+          private
+
+          def html_namespacing_key
+            virtual_path
+          end
+
+          def html_namespacing_format
+            formats.first
+          end
+        end
+      end
+
+      def self.install_rails_2_3(options = {})
+        self.install_rails_all_versions(options)
+
+        ::ActionView::Template.class_eval do
+          private
+
+          def html_namespacing_key
+            path_without_format_and_extension
+          end
+
+          def html_namespacing_format
+            format.to_sym
           end
         end
       end
