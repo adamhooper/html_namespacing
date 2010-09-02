@@ -12,7 +12,7 @@ begin
     gem.authors = ['adamh']
     gem.files = FileList['lib/**/*.rb', 'rails/**/*.rb', 'ext/**/*.[ch]', 'lib/html_namespacing/plugin/dom_scan_*.js*'].to_a
     gem.extensions = ['ext/html_namespacing/extconf.rb']
-    gem.add_dependency 'adamh-glob_fu', '>= 0.0.3'
+    gem.add_dependency 'glob_fu', '>= 0.0.4'
   end
   Jeweler::GemcutterTasks.new
 

@@ -62,9 +62,7 @@ ensure_string_length(
         return 0;
     }
 
-    while (new_r_len < len) {
-        new_r_len <<= 1;
-    }
+    new_r_len = len + 1024; /* add some slack */
 
     new_r = allocation_strategy.realloc(*r, sizeof(char) * new_r_len);
     if (!new_r) {

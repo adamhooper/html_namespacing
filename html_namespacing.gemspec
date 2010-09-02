@@ -5,11 +5,11 @@
 
 Gem::Specification.new do |s|
   s.name = %q{html_namespacing}
-  s.version = "0.3.0"
+  s.version = "0.3.1"
 
   s.required_rubygems_version = Gem::Requirement.new(">= 0") if s.respond_to? :required_rubygems_version=
   s.authors = ["adamh"]
-  s.date = %q{2010-04-08}
+  s.date = %q{2010-09-02}
   s.description = %q{Inserts "class=" attributes within snippets of HTML so CSS and JavaScript can use automatic scopes}
   s.email = %q{adam@adamhooper.com}
   s.extensions = ["ext/html_namespacing/extconf.rb"]
@@ -30,7 +30,7 @@ Gem::Specification.new do |s|
   s.homepage = %q{http://github.com/adamh/html_namespacing}
   s.rdoc_options = ["--charset=UTF-8"]
   s.require_paths = ["lib"]
-  s.rubygems_version = %q{1.3.5}
+  s.rubygems_version = %q{1.3.6}
   s.summary = %q{Automatic HTML namespacing}
   s.test_files = [
     "spec/spec_helper.rb",
@@ -42,12 +42,12 @@ Gem::Specification.new do |s|
     s.specification_version = 3
 
     if Gem::Version.new(Gem::RubyGemsVersion) >= Gem::Version.new('1.2.0') then
-      s.add_runtime_dependency(%q<adamh-glob_fu>, [">= 0.0.3"])
+      s.add_runtime_dependency(%q<glob_fu>, [">= 0.0.4"])
     else
-      s.add_dependency(%q<adamh-glob_fu>, [">= 0.0.3"])
+      s.add_dependency(%q<glob_fu>, [">= 0.0.4"])
     end
   else
-    s.add_dependency(%q<adamh-glob_fu>, [">= 0.0.3"])
+    s.add_dependency(%q<glob_fu>, [">= 0.0.4"])
   end
 end
 
